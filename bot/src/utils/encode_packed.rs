@@ -6,23 +6,6 @@ use ethers::prelude::*;
 pub struct TakeLastXBytes(pub usize);
 
 /// Represents a data type in solidity
-/// ```rust
-/// use eth_encode_packed::SolidityDataType;
-/// use eth_encode_packed::TakeLastXBytes;
-/// use eth_encode_packed::ethabi::ethereum_types::{U256, Address};
-/// // Uint24
-/// SolidityDataType::NumberWithShift(U256::from(3838), TakeLastXBytes(24));
-/// // String
-/// SolidityDataType::String("ipfs-cid-url-very-long");
-/// // Bool
-/// SolidityDataType::Bool(true);
-/// // Address
-/// use std::convert::TryInto;
-///
-/// let address = hex::decode("d8b934580fcE35a11B58C6D73aDeE468a2833fa8").unwrap();
-/// let address: [u8; 20] = address.try_into().unwrap();
-/// SolidityDataType::Address(Address::from(address));
-/// ```
 pub enum PackedToken<'a> {
     String(&'a str),
     Address(Address),
@@ -73,28 +56,6 @@ fn pack<'a>(data_type: &'a PackedToken) -> Vec<u8> {
     res
 }
 
-/// ```rust
-/// use eth_encode_packed::hex;
-/// use eth_encode_packed::SolidityDataType;
-/// use eth_encode_packed::TakeLastXBytes;
-/// use eth_encode_packed::abi;
-/// use eth_encode_packed::ethabi::ethereum_types::{Address, U256};
-/// use std::convert::TryInto;
-///
-/// let address = hex::decode("d8b934580fcE35a11B58C6D73aDeE468a2833fa8").unwrap();
-/// let address: [u8; 20] = address.try_into().unwrap();
-/// let input = vec![
-///     SolidityDataType::NumberWithShift(U256::from(3838), TakeLastXBytes(24)),
-///     SolidityDataType::Number(U256::from(4001)),
-///     SolidityDataType::String("this-is-a-sample-string"),
-///     SolidityDataType::Address(Address::from(address)),
-///     SolidityDataType::Number(U256::from(1)),
-/// ];
-/// let (_bytes, hash) = abi::encode_packed(&input);
-/// let hash = format!("0x{:}", hash);
-/// let expected = "0x000efe0000000000000000000000000000000000000000000000000000000000000fa1746869732d69732d612d73616d706c652d737472696e67d8b934580fce35a11b58c6d73adee468a2833fa80000000000000000000000000000000000000000000000000000000000000001";
-/// assert_eq!(hash, expected);
-/// ```
 pub fn encode_packed(items: &[PackedToken]) -> (Vec<u8>, String) {
     let res = items.iter().fold(Vec::new(), |mut acc, i| {
         let pack = pack(i);

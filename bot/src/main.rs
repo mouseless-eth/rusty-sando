@@ -7,7 +7,7 @@ use eyre::Result;
 
 use fern::colors::{Color, ColoredLevelConfig};
 
-use rusty_sandwich::{
+use rusty_sando::{
     prelude::{sync_dex, Dex, PoolVariant},
     runner::Bot,
     utils::{self, dotenv::read_env_vars},
@@ -40,7 +40,7 @@ async fn main() -> Result<()> {
         .chain(fern::log_file("output.log")?)
         // hide all logs for everything other than bot
         .level(log::LevelFilter::Error)
-        .level_for("rusty_sandwich", log::LevelFilter::Info)
+        .level_for("rusty_sando", log::LevelFilter::Info)
         .apply()?;
 
     read_env_vars();
@@ -137,7 +137,7 @@ async fn main() -> Result<()> {
 //mod test {
 //    use ethers::providers::Middleware;
 //    use futures::StreamExt;
-//    use rusty_sandwich::utils::testhelper;
+//    use rusty_sando::utils::testhelper;
 //
 //    #[tokio::test]
 //    async fn sub_blocks() {
