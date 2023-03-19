@@ -1,0 +1,19 @@
+
+[profile.default]
+solc_version = '0.8.15'
+auto_detect_solc = false
+optimizer = true
+optimizer_runs = 200 # Default amount
+ffi = true
+fuzz_runs = 1_000
+remappings = [
+  "forge-std=lib/forge-std/src/",
+  "foundry-huff=lib/foundry-huff/src/",
+  "ds-test/=lib/forge-std/lib/ds-test/src/",
+  "forge-std/=lib/forge-std/src/",
+  "foundry-huff/=lib/foundry-huff/src/",
+  "stringutils/=lib/foundry-huff/lib/solidity-stringutils/",
+  "v2-core/=lib/v2-core/contracts/",
+  "v2-periphery/=lib/v2-periphery/contracts/",
+  "v3-core/=lib/v3-core/contracts/",
+]

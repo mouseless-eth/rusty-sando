@@ -1,0 +1,39 @@
+[package]
+name = "rusty-sandwich"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+ethers-flashbots = { git = "https://github.com/onbjerg/ethers-flashbots" }
+ethers = {version = "2.0.0", features = ["abigen", "ws"]}
+revm = {version = "3.0.0", features = ["ethersdb", "serde", "std"]}
+dotenv = "0.15.0"
+serde_json = "1.0.94"
+hashbrown = "0.13.2"
+tokio = { version = "1", features = ["full"] }
+log = "0.4.17"
+url = "2.3.1"
+anyhow = "1.0.65"
+dashmap = "5.4.0"
+async-trait = "0.1.64"
+async-recursion = "1.0.2"
+hex = "0.4.3"
+serde = "1.0.145"
+eyre = "0.6.8"
+reqwest = "0.11.12"
+time = "*"
+indoc = "2"
+indicatif = "0.17.1"
+thiserror = "1.0.37"
+fern = {version = "0.6", features = ["colored"]}
+chrono = "0.4.23"
+futures = "0.3.5"
+colored = "2.0.0"
+
+[profile.release]
+debug = true
+
+[dev-dependencies]
+tokio-test = "*"
