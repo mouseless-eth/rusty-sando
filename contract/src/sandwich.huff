@@ -1,3 +1,8 @@
+/// @title Sandwich
+/// @notice SPDX-License-Identifier: MIT
+/// @author 0xmouseless <https://github.com/mouseless-eth>
+/// @notice gas optimized sandwich contract.
+
 // +-------------------------------------------+
 // |                Constants                  |
 // +-------------------------------------------+
