@@ -1,0 +1,6 @@
+bot/target
+contract/out
+contract/cache
+.env
+output.log
+__TEMP__*
