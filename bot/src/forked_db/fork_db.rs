@@ -17,8 +17,8 @@ use super::{
 
 #[derive(Clone, Debug)]
 pub struct ForkDB {
-    backend: Sender<BackendFetchRequest>,
     // used to make calls for missing data
+    backend: Sender<BackendFetchRequest>,
     db: CacheDB<EmptyDB>,
 }
 

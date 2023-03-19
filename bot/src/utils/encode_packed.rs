@@ -1,4 +1,4 @@
-// Code yoinked from https://github.com/roberts-ivanovs/eth-encode-packed-rs
+// credit to: https://github.com/roberts-ivanovs/eth-encode-packed-rs
 pub use hex; // Re-export
 
 use ethers::prelude::*;

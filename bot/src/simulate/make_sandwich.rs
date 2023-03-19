@@ -104,7 +104,6 @@ async fn juiced_quadratic_search(
     #[cfg(test)]
     {
         // if running test, setup contract sandwich to allow for backtest
-        // doing this incase backtesting before contract was deployed
         // can also inject new sandwich code for testing
         crate::prelude::inject_sando(&mut fork_factory, upper_bound);
     }

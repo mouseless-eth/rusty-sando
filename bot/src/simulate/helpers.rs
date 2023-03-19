@@ -207,7 +207,7 @@ pub fn get_balance_of_evm(
     );
 
     evm.env.tx.transact_to = TransactTo::Call(token.0.into());
-    evm.env.tx.data = erc20.encode("balanceOf", owner).unwrap().0; // getReserves()
+    evm.env.tx.data = erc20.encode("balanceOf", owner).unwrap().0;
     evm.env.tx.caller = utils::constants::get_eth_dev().0.into();
     evm.env.tx.gas_price = next_block.base_fee.into();
     evm.env.tx.gas_limit = 700000;

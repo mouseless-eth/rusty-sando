@@ -133,22 +133,22 @@ async fn main() -> Result<()> {
     }
 }
 
-#[cfg(test)]
-mod test {
-    use ethers::providers::Middleware;
-    use futures::StreamExt;
-    use rusty_sandwich::utils::testhelper;
-
-    #[tokio::test]
-    async fn sub_blocks() {
-        let client = testhelper::create_ws().await;
-        // let client = Provider::<Ws>::connect("ws://localhost:8545").await.unwrap();
-
-        let mut stream = client.subscribe_blocks().await.unwrap();
-        let mut prev = 0;
-        while let Some(block) = stream.next().await {
-            println!("{:#?}", block.timestamp.as_u32() - prev);
-            prev = block.timestamp.as_u32();
-        }
-    }
-}
+//#[cfg(test)]
+//mod test {
+//    use ethers::providers::Middleware;
+//    use futures::StreamExt;
+//    use rusty_sandwich::utils::testhelper;
+//
+//    #[tokio::test]
+//    async fn sub_blocks() {
+//        let client = testhelper::create_ws().await;
+//        // let client = Provider::<Ws>::connect("ws://localhost:8545").await.unwrap();
+//
+//        let mut stream = client.subscribe_blocks().await.unwrap();
+//        let mut prev = 0;
+//        while let Some(block) = stream.next().await {
+//            println!("{:#?}", block.timestamp.as_u32() - prev);
+//            prev = block.timestamp.as_u32();
+//        }
+//    }
+//}
