@@ -11,7 +11,6 @@ use crate::types::sandwich_types::OptimalRecipe;
 use crate::types::{BlockInfo, SimulationError};
 use crate::utils::dotenv;
 use crate::utils::tx_builder::{self, braindance, SandwichMaker};
-use async_recursion::async_recursion;
 
 use super::{
     attach_braindance_module, braindance_address, braindance_controller_address,
@@ -74,7 +73,6 @@ pub async fn create_optimal_sandwich(
 // Returns:
 // Ok(U256): optimal amount in, if no errors during calculation
 // Err(SimulationError): if error during calculation
-#[async_recursion]
 async fn juiced_quadratic_search(
     ingredients: &RawIngredients,
     mut lower_bound: U256,
