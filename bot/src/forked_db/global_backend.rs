@@ -146,7 +146,6 @@ impl GlobalBackend {
                 entry.get_mut().push(listener);
             }
             Entry::Vacant(entry) => {
-                //println!("requesting account {:?}", address);
                 entry.insert(vec![listener]);
                 let provider = self.provider.clone();
                 let block_num = self.block_num;
@@ -174,7 +173,6 @@ impl GlobalBackend {
                 entry.get_mut().push(listener);
             }
             Entry::Vacant(entry) => {
-                //println!("requesting storage {:?} {:?}", address, idx);
                 entry.insert(vec![listener]);
                 let provider = self.provider.clone();
                 let block_num = self.block_num;

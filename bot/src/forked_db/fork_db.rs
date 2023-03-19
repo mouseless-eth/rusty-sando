@@ -28,7 +28,6 @@ impl ForkDB {
     }
 
     fn do_get_basic(&self, address: rAddress) -> DatabaseResult<Option<AccountInfo>> {
-        //println!("do_get_basic for : {:?}", address);
         tokio::task::block_in_place(|| {
             let (sender, rx) = oneshot_channel();
             let req = BackendFetchRequest::Basic(address, sender);
@@ -38,7 +37,6 @@ impl ForkDB {
     }
 
     fn do_get_storage(&self, address: rAddress, index: rU256) -> DatabaseResult<rU256> {
-        //println!("do_get_storage for : {:?} {:?}", address, index);
         tokio::task::block_in_place(|| {
             let (sender, rx) = oneshot_channel();
             let req = BackendFetchRequest::Storage(address, index, sender);
@@ -48,7 +46,6 @@ impl ForkDB {
     }
 
     fn do_get_block_hash(&self, number: rU256) -> DatabaseResult<B256> {
-        //println!("do_get_block_hash for : {:?}", number);
         tokio::task::block_in_place(|| {
             let (sender, rx) = oneshot_channel();
             let req = BackendFetchRequest::BlockHash(number, sender);
@@ -62,17 +59,11 @@ impl Database for ForkDB {
     type Error = DatabaseError;
 
     fn basic(&mut self, address: B160) -> Result<Option<AccountInfo>, Self::Error> {
-        //println!(
-        //    "gettting basic for addr: {:?}[{:?}]. Exists? ",
-        //    &address,
-        //    self.db.accounts.get(&address).is_some()
-        //);
         // found locally, return it
         match self.db.accounts.get(&address) {
             // basic info is already in db
             Some(account) => Ok(Some(account.info.clone())),
             None => {
-                //println!("basic info not in db {:?}", address);
                 // basic info is not in db, make rpc call to fetch it
                 let info = match self.do_get_basic(address) {
                     Ok(i) => i,
@@ -90,12 +81,6 @@ impl Database for ForkDB {
     }
 
     fn storage(&mut self, address: B160, index: rU256) -> Result<rU256, Self::Error> {
-        //println!(
-        //    "gettting storage for addr: {:?}[{:?}] at index: {:?}",
-        //    &address,
-        //    self.db.accounts.get(&address).is_some(),
-        //    index
-        //);
         // found locally, return it
         if let Some(account) = self.db.accounts.get(&address) {
             if let Some(entry) = account.storage.get(&index) {
@@ -133,7 +118,6 @@ impl Database for ForkDB {
             // found locally, return it
             Some(hash) => Ok(*hash),
             None => {
-                //println!("block hash not in db");
                 // rpc call to fetch block hash
                 let block_hash = match self.do_get_block_hash(number) {
                     Ok(i) => i,
