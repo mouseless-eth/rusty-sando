@@ -1,16 +1,21 @@
 # Rusty-Sando ![license](https://img.shields.io/badge/License-MIT-green.svg?label=license) ![twitter](https://img.shields.io/twitter/follow/0xMouseless?style=social)
-A practical example how to perform sandwich attacks written using Rust and Huff.
+A practical example how to perform V2/V3 and multi-meat sandwich attacks written using Rust and Huff.
 
 The goal of this repo is to act as reference material for searchers looking to implement their strategies using Rust and Huff. 
 
+## Demo
 https://user-images.githubusercontent.com/97399882/226269539-afedced0-e070-4d12-9853-dfbafbcefa49.mp4
+
+## Brief Explanation
+Anytime that a transaction interacts with a Uniswap V2/V3 pool and their forks, there is some slippage introduced (router swaps, aggregator swaps, other mev bots). Sandwich bots are a toxic form of MEV as they profit off this slippage by frontrunning the transaction pushing the price of the asset up to the slippage limit and then immediately selling the asset through a backrun transaction.
 
 ## Features
 - **Fully Generalized**: Sandwich any tx that introduces slippage (routers, aggregators, mev bots, ...).
-- **V2 and V3 Logic**: Logic to handle Uniswap V2/V3 pools and their forks.
+- **V2 and V3 Logic**: Logic to handle Uniswap V2/V3 pools.
 - **Multi-Meat**: Build and send multi-meat sandwiches.
 - **Gas Optimized**: Contract written in Huff using unconventional gas optimizations.
 - **Local Simulations**: Fast concurrent EVM simulations to find sandwich opportunities. 
+- **Token Dust**: Stores dust at the end of every bundle for lower gas usage next time token is traded. 
 - **Salmonella Checks**: Detect if tx uses unusual opcodes that may produce different mainnet results.
 - **Discord Logging**: Send notifications via discord webhooks.
 
