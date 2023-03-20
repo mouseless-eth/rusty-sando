@@ -19,7 +19,7 @@ impl BundleRelay {
     ) -> Result<BundleRelay, url::ParseError> {
         // Extract wallets from .env keys
         let bundle_private_key = std::env::var("FLASHBOTS_AUTH_KEY").unwrap();
-        let searcher_private_key = std::env::var("PRIVATE_KEY").unwrap();
+        let searcher_private_key = std::env::var("SEARCHER_PRIVATE_KEY").unwrap();
 
         let bundle_signer = bundle_private_key.parse::<LocalWallet>().unwrap();
         let searcher_signer = searcher_private_key.parse::<LocalWallet>().unwrap();

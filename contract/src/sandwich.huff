@@ -14,7 +14,7 @@
 #define constant PAIR_INIT_CODE_HASH = 0xe34f199b19b2b4f47f68442619d555527d244f78a3297ea89325f843f87b8b54
 
 #define constant WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2
-#define constant ADMIN_ONE = 0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf
+#define constant SEARCHER = 0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf
 #define constant HELPER = 0x2B5AD5c4795c026514f8317c7a215E218DcCD6cF
 
 // +-------------------------------------------+
@@ -260,9 +260,9 @@ isZeroForOne:
 
 v3_input1:
     // validate msg.sender
-    [ADMIN_ONE] caller eq                       // [is_caller_admin]
-    iszero                                      // [!is_caller_admin]
-    gtfo                                        // [gtfo_label, is_caller_admin]
+    [SEARCHER] caller eq                       // [is_caller_searcher]
+    iszero                                      // [!is_caller_searcher]
+    gtfo                                        // [gtfo_label, is_caller_searcher]
     jumpi                                       // []
 
     // ***Preset the stack for when we call pool.swap(recipient, zeroForOne, amountSpecified, sqrtPriceLimitX96, data)
@@ -294,9 +294,9 @@ v3_input1:
 // (UniswapV3) Weth is token0 && input && has an offset of 0
 v3_input0:
     // validate msg.sender
-    [ADMIN_ONE] caller eq                       // [is_caller_admin]
-    iszero                                      // [!is_caller_admin]
-    gtfo                                        // [gtfo_label, is_caller_admin]
+    [SEARCHER] caller eq                       // [is_caller_searcher]
+    iszero                                      // [!is_caller_searcher]
+    gtfo                                        // [gtfo_label, is_caller_searcher]
     jumpi                                       // []
 
     // ***Preset the stack for when we call pool.swap(recipient, zeroForOne, amountSpecified, sqrtPriceLimitX96, data)
@@ -330,9 +330,9 @@ v3_input0:
 // **When amountIn is < 10^13**
 v3_output0_small:
     // validate msg.sender
-    [ADMIN_ONE] caller eq                       // [is_caller_admin]
-    iszero                                      // [!is_caller_admin]
-    gtfo                                        // [gtfo_label, is_caller_admin]
+    [SEARCHER] caller eq                       // [is_caller_searcher]
+    iszero                                      // [!is_caller_searcher]
+    gtfo                                        // [gtfo_label, is_caller_searcher]
     jumpi                                       // []
 
     // ***Preset the stack for when we call pool.swap(recipient, zeroForOne, amountSpecified, sqrtPriceLimitX96, data)
@@ -365,9 +365,9 @@ v3_output0_small:
 // **When amountIn is < 10^13**
 v3_output1_small:
     // validate msg.sender
-    [ADMIN_ONE] caller eq                       // [is_caller_admin]
-    iszero                                      // [!is_caller_admin]
-    gtfo                                        // [gtfo_label, is_caller_admin]
+    [SEARCHER] caller eq                       // [is_caller_searcher]
+    iszero                                      // [!is_caller_searcher]
+    gtfo                                        // [gtfo_label, is_caller_searcher]
     jumpi                                       // []
 
     // ***Preset the stack for when we call pool.swap(recipient, zeroForOne, amountSpecified, sqrtPriceLimitX96, data)
@@ -400,9 +400,9 @@ v3_output1_small:
 
 v3_output1_big:
     // validate msg.sender
-    [ADMIN_ONE] caller eq                       // [is_caller_admin]
-    iszero                                      // [!is_caller_admin]
-    gtfo                                        // [gtfo_label, is_caller_admin]
+    [SEARCHER] caller eq                       // [is_caller_searcher]
+    iszero                                      // [!is_caller_searcher]
+    gtfo                                        // [gtfo_label, is_caller_searcher]
     jumpi                                       // []
 
     // ***Preset the stack for when we call pool.swap(recipient, zeroForOne, amountSpecified, sqrtPriceLimitX96, data)
@@ -436,9 +436,9 @@ v3_output1_big:
 
 v3_output0_big:
     // validate msg.sender
-    [ADMIN_ONE] caller eq                       // [is_caller_admin]
-    iszero                                      // [!is_caller_admin]
-    gtfo                                        // [gtfo_label, is_caller_admin]
+    [SEARCHER] caller eq                       // [is_caller_searcher]
+    iszero                                      // [!is_caller_searcher]
+    gtfo                                        // [gtfo_label, is_caller_searcher]
     jumpi                                       // []
 
     // ***Preset the stack for when we call pool.swap(recipient, zeroForOne, amountSpecified, sqrtPriceLimitX96, data)
@@ -472,9 +472,9 @@ v3_output0_big:
 // Make swap when Weth is token0 && output
 v2_output0:
     // validate msg.sender
-    [ADMIN_ONE] caller eq                       // [is_caller_admin]
-    iszero                                      // [!is_caller_admin]
-    gtfo                                        // [gtfo_label, is_caller_admin]
+    [SEARCHER] caller eq                       // [is_caller_searcher]
+    iszero                                      // [!is_caller_searcher]
+    gtfo                                        // [gtfo_label, is_caller_searcher]
     jumpi                                       // []
 
     // ***Preset the stack for when we call pair.swap(token0Out, token1Out, to, data)***
@@ -521,9 +521,9 @@ v2_output0:
 // Make swap when Weth is token1 && output
 v2_output1:
     // validate msg.sender
-    [ADMIN_ONE] caller eq                       // [is_caller_admin]
-    iszero                                      // [!is_caller_admin]
-    gtfo                                        // [gtfo_label, is_caller_admin]
+    [SEARCHER] caller eq                       // [is_caller_searcher]
+    iszero                                      // [!is_caller_searcher]
+    gtfo                                        // [gtfo_label, is_caller_searcher]
     jumpi                                       // []
 
     // ***Preset the stack for when we call pair.swap(token0Out, token1Out, to, data)***
@@ -571,9 +571,9 @@ v2_output1:
 // Make swap when Weth is token0 && input
 v2_input0:
     // validate msg.sender
-    [ADMIN_ONE] caller eq                       // [is_caller_admin]
-    iszero                                      // [!is_caller_admin]
-    gtfo                                        // [gtfo_label, is_caller_admin]
+    [SEARCHER] caller eq                       // [is_caller_searcher]
+    iszero                                      // [!is_caller_searcher]
+    gtfo                                        // [gtfo_label, is_caller_searcher]
     jumpi                                       // []
 
     // ***Preset the stack for when we call pair.swap(token0Out, token1Out, to, data)***
@@ -624,9 +624,9 @@ v2_input0:
 // Make swap when Weth is token1 && input
 v2_input1:
     // validate msg.sender
-    [ADMIN_ONE] caller eq                       // [is_caller_admin]
-    iszero                                      // [!is_caller_admin]
-    gtfo                                        // [gtfo_label, is_caller_admin]
+    [SEARCHER] caller eq                       // [is_caller_searcher]
+    iszero                                      // [!is_caller_searcher]
+    gtfo                                        // [gtfo_label, is_caller_searcher]
     jumpi                                       // []
 
     // ***Preset the stack for when we call pair.swap(token0Out, token1Out, to, data)***
@@ -678,7 +678,7 @@ seppuku:
     // validate caller
     [HELPER] caller eq                          // [is_caller_helper]
     iszero                                      // [!is_caller_helper]
-    gtfo                                        // [gtfo_label, is_caller_admin]
+    gtfo                                        // [gtfo_label, is_caller_helper]
     jumpi                                       // []
 
     caller                                      // [caller]
@@ -689,7 +689,7 @@ recover_eth:
     // validate caller
     [HELPER] caller eq                          // [is_caller_helper]
     iszero                                      // [!is_caller_helper]
-    gtfo                                        // [gtfo_label, is_caller_admin]
+    gtfo                                        // [gtfo_label, is_caller_helper]
     jumpi                                       // []
 
     returndatasize                              // [retsize]
@@ -712,7 +712,7 @@ recover_weth:
     // validate caller
     [HELPER] caller eq                          // [is_caller_helper]
     iszero                                      // [!is_caller_helper]
-    gtfo                                        // [gtfo_label, is_caller_admin]
+    gtfo                                        // [gtfo_label, is_caller_helper]
     jumpi                                       // []
 
     // prepare variables for transfer call

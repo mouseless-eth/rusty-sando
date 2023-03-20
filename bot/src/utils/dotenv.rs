@@ -3,9 +3,9 @@ use std::str::FromStr;
 
 // Construct the searcher wallet
 pub fn get_searcher_wallet() -> LocalWallet {
-    let private_key = std::env::var("PRIVATE_KEY")
-        .expect("Required environment variable \"PRIVATE_KEY\" not set");
-    private_key
+    let searcher_private_key = std::env::var("SEARCHER_PRIVATE_KEY")
+        .expect("Required environment variable \"SEARCHER_PRIVATE_KEY\" not set");
+    searcher_private_key
         .parse::<LocalWallet>()
         .expect("Failed to parse private key")
 }
@@ -44,7 +44,7 @@ pub fn read_env_vars() -> Vec<(String, String)> {
     let mut env_vars = Vec::new();
     let keys = vec![
         "RPC_URL_WSS",
-        "PRIVATE_KEY",
+        "SEARCHER_PRIVATE_KEY",
         "FLASHBOTS_AUTH_KEY",
         "SANDWICH_CONTRACT",
         "V2_ALERT_DISCORD_WEBHOOK",
