@@ -1,84 +1,132 @@
-<img align="right" width="150" height="150" top="100" src="./assets/blueprint.png">
+# Contract ![license](https://img.shields.io/badge/License-MIT-green.svg?label=license)
 
-# huff-project-template • [![ci](https://github.com/huff-language/huff-project-template/actions/workflows/ci.yaml/badge.svg)](https://github.com/huff-language/huff-project-template/actions/workflows/ci.yaml) ![license](https://img.shields.io/github/license/huff-language/huff-project-template.svg) ![solidity](https://img.shields.io/badge/solidity-^0.8.15-lightgrey)
+Gas optimized sando contract written in Huff to make use unconventional gas optimizations. 
 
-Versatile Huff Project Template using Foundry.
+> Why not Yul? Yul does not give access to the stack or jump instructions. 
 
+## Gas Optimizations
 
-## Getting Started
+### JUMPDEST Function Sig
+Instead of reserving 4 bytes for a function selector, store a JUMPDEST in the first byte of calldata and jump to it at the beginning of execution. Doing so allows us to jump to the code range 0x00-0xFF, fill range with place holder JUMPDEST that point to location of function body. 
 
-### Requirements
-
-The following will need to be installed in order to use this template. Please follow the links and instructions.
-
--   [Git](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git)  
-    -   You'll know you've done it right if you can run `git --version`
--   [Foundry / Foundryup](https://github.com/gakonst/foundry)
-    -   This will install `forge`, `cast`, and `anvil`
-    -   You can test you've installed them right by running `forge --version` and get an output like: `forge 0.2.0 (92f8951 2022-08-06T00:09:32.96582Z)`
-    -   To get the latest of each, just run `foundryup`
--   [Huff Compiler](https://docs.huff.sh/get-started/installing/)
-    -   You'll know you've done it right if you can run `huffc --version` and get an output like: `huffc 0.3.0`
-
-### Quickstart
-
-1. Clone this repo or use template
-
-Click "Use this template" on [GitHub](https://github.com/huff-language/huff-project-template) to create a new repository with this repo as the initial state.
-
-Or run:
-
-```
-git clone https://github.com/huff-language/huff-project-template
-cd huff-project-template
+Example:
+```as
+#define macro MAIN() = takes (0) returns (0) {
+    // extract function selector (JUMPDEST encoding)
+    returndatasize                              // [0x00]
+    calldataload                                // [calldata]
+    returndatasize                              // [0x00, calldata]
+    byte                                        // [jumplabel]
+    jump                                        // []
 ```
 
-2. Install dependencies
+> **Note**
+> JUMPDEST 0xfa is reserved to handle [UniswapV3 callback](https://docs.uniswap.org/contracts/v3/reference/core/interfaces/callback/IUniswapV3SwapCallback).
 
-Once you've cloned and entered into your repository, you need to install the necessary dependencies. In order to do so, simply run:
+### Encoding WETH Value Using tx.value
+When dealing with WETH amounts, the amount is encoded by first dividing the value by 100000, and setting the divided value as `tx.value` when calling the contract. The contract then multiplies `tx.value` by 100000 to get the original amount. 
 
-```shell
-forge install
+> the last 5 digits of the original value are lost after encoding, however it is a small amount of wei that we can ignore it.
+Example:
+```as
+    // setup calldata for swap(wethOut, 0, address(this), "")
+    [V2_Swap_Sig] 0x00 mstore                   
+    0x0186a0 callvalue mul 0x04 mstore          // original weth value is decoded here by doing 100000 * callvalue    
+    0x00 0x24 mstore                   
+    address 0x44 mstore                         
+    0x80 0x64 mstore                     
 ```
 
-3. Build & Test
+### Encoding Other Token Value Using 5 Bytes Of Calldata
+When dealing with the other token amount, the values can range significantlly depending on token decimal and total supply. To account for full range, we encode by fitting the value into 4 bytes of calldata plus a byte shift. To decode, we byteshift the 4bytes to the left. 
 
-To build and test your contracts, you can run:
+We use byteshifts instead of bitshifts because we perform a byteshift by storing the 4bytes in memory N bytes to the left of its memory slot. 
 
-```shell
-forge build
-forge test
+However, instead of encoding the byteshift into our calldata, we encode the offset in memory such that when the 4bytes are stored, it will be N bytes from the left of its storage slot.
+
+> **Note** 
+> Free alfa: Might be able to optimize contract by eliminating unnecessary [memory expansions](https://www.evm.codes/about#memoryexpansion) by changing order that params are stored in memory. I did not account for this when writing the contract. 
+
+### Hardcoded values
+Weth address is hardcoded into the contract and there are individual methods to handle when Weth is token0 or token1. 
+
+### Encode Packed
+All calldata is encoded by packing the values together. 
+
+## Interface
+
+| JUMPDEST  | Function Name |
+| :-------------: | :------------- |
+| 0x06  | V2 Swap, Weth is Token0 and Output  |
+| 0x0B  | V2 Swap, Weth is Token0 and Input  |
+| 0x10  | V2 Swap, Weth is Token1 and Output  |
+| 0x15  | V2 Swap, Weth is Token1 and Input |
+| 0x1A  | V3 Swap, Weth is Token1 and Output, Big Encoding |
+| 0x1F  | V3 Swap, Weth is Token0 and Output, Big Encoding  |
+| 0x24  | V3 Swap, Weth is Token1 and Output, Small Encoding  |
+| 0x29  | V3 Swap, Weth is Token0 and Output, Small Encoding |
+| 0x2E  | V3 Swap, Weth is Token0 and Input  |
+| 0x33  | V3 Swap, Weth is Token1 and Input  |
+| 0x38  | Seppuku (self-destruct)  |
+| 0x3D  | Recover Eth  |
+| 0x42  | Recover Weth  |
+| 0xFA  | UniswapV3 Callback  |
+
+
+## Calldata Encoding 
+### Uniswap V2 Calldata Encoding Format
+
+#### When Weth is input (0x0B, 0x15)
+| Byte Length  | Variable |
+| :-------------: | :------------- |
+| 1 | JUMPDEST  |
+| 20 | PairAddress  |
+| 1 | Where to store AmountOut  |
+| 4 | AmountOut  |
+
+#### When Weth is output (0x06, 0x10)
+| Byte Length  | Variable |
+| :-------------: | :------------- |
+| 1 | JUMPDEST  |
+| 20 | PairAddress  |
+| 20 | TokenInAddress  |
+| 1 | Where to store AmountIn  |
+| 4 | AmountIn  |
+
+### Uniswap V3 Calldata Encoding Format
+
+#### When Weth is input (0x2E, 0x33)
+| Byte Length  | Variable |
+| :-------------: | :------------- |
+| 1 | JUMPDEST  |
+| 20 | PairAddress  |
+| 32 | PairInitHash  | 
+> PairInitHash used to verify msg.sender is pool in callback
+
+#### When Weth is output small (0x2E, 0x33)
+| Byte Length  | Variable |
+| :-------------: | :------------- |
+| 1 | JUMPDEST  |
+| 20 | PairAddress  |
+| 20 | TokenInAddress  |
+| 6 | AmountIn  | 
+| 32 | PairInitHash  | 
+> Small encoding when AmountIn < 10^12
+
+#### When Weth is output big (0x1A, 0x1F)
+| Byte Length  | Variable |
+| :-------------: | :------------- |
+| 1 | JUMPDEST  |
+| 20 | PairAddress  |
+| 20 | TokenInAddress  |
+| 9 | AmountIn  | 
+| 32 | PairInitHash  | 
+> AmountIn will be multiplied by 10^12
+
+## Tests
+
+```console
+forge test --rpc-url <your-rpc-url-here>
 ```
-
-For more information on how to use Foundry, check out the [Foundry Github Repository](https://github.com/foundry-rs/foundry/tree/master/forge) and the [foundry-huff library repository](https://github.com/huff-language/foundry-huff).
-
-
-## Blueprint
-
-```ml
-lib
-├─ forge-std — https://github.com/foundry-rs/forge-std
-├─ foundry-huff — https://github.com/huff-language/foundry-huff
-scripts
-├─ Deploy.s.sol — Deployment Script
-src
-├─ SimpleStore — A Simple Storage Contract in Huff
-test
-└─ SimpleStore.t — SimpleStoreTests
-```
-
-
-## License
-
-[The Unlicense](https://github.com/huff-language/huff-project-template/blob/master/LICENSE)
-
-
-## Acknowledgements
-
-- [forge-template](https://github.com/foundry-rs/forge-template)
-- [femplate](https://github.com/abigger87/femplate)
-
-
-## Disclaimer
-
-_These smart contracts are being provided as is. No guarantee, representation or warranty is being made, express or implied, as to the safety or correctness of the user interface or the smart contracts. They have not been audited and as such there can be no assurance they will work as intended, and users may experience delays, failures, errors, omissions, loss of transmitted information or loss of funds. The creators are not liable for any of the foregoing. Users should proceed with caution and use at their own risk._
+## Benchmarks
+!todo
