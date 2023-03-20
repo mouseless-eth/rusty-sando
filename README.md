@@ -38,4 +38,5 @@ If any bugs or optimizations are found, feel free to create a pull request. **Al
 - [huff-language](https://github.com/huff-language/huff-rs)
 - [foundry](https://github.com/foundry-rs/foundry)
 - [reth](https://github.com/paradigmxyz/reth)
+- [ethers-rs](https://github.com/gakonst/ethers-rs)
 - [mev-template-rs](https://github.com/degatchi/mev-template-rs)
