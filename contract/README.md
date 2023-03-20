@@ -26,7 +26,8 @@ Example:
 ### Encoding WETH Value Using tx.value
 When dealing with WETH amounts, the amount is encoded by first dividing the value by 100000, and setting the divided value as `tx.value` when calling the contract. The contract then multiplies `tx.value` by 100000 to get the original amount. 
 
-> the last 5 digits of the original value are lost after encoding, however it is a small amount of wei that we can ignore it.
+> the last 5 digits of the original value are lost after encoding, however it is a small amount of wei and can be ignored.
+
 Example:
 ```as
     // setup calldata for swap(wethOut, 0, address(this), "")
