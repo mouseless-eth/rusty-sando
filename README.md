@@ -1,5 +1,5 @@
 # Rusty-Sando ![license](https://img.shields.io/badge/License-MIT-green.svg?label=license) ![twitter](https://img.shields.io/twitter/follow/0xMouseless?style=social)
-A practical example how to perform V2/V3 and multi-meat sandwich attacks written using Rust and Huff.
+A practical example on how to perform V2/V3 and multi-meat sandwich attacks written using Rust and Huff.
 
 The goal of this repo is to act as reference material for searchers looking to implement their strategies using Rust and Huff. 
 
