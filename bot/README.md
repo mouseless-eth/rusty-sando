@@ -1,11 +1,11 @@
 # Rusty-Sando/Bot ![license](https://img.shields.io/badge/License-MIT-green.svg?label=license)
 
-Bot logic relies heavily on REVM simulations to detect sandwichable transactions. The simulations are done by injecting a modified router contract called [`BrainDance.sol`](https://github.com/mouseless-eth/rusty-sando/blob/master/contract/src/BrainDance.sol) into a new EVM instance. Once injected, a concurrent binary search is performed to find a optimal input amount that results in the highest revenue. After sandwich calculations, the bot performs a [salmonella](https://github.com/Defi-Cartel/salmonella) check. If the sandwich is salmonella free, the bot then calculates gas bribes and sends bundle if profitable. 
+Bot logic relies heavily on REVM simulations to detect sandwichable transactions. The simulations are done by injecting a modified router contract called [`BrainDance.sol`](https://github.com/mouseless-eth/rusty-sando/blob/master/contract/src/BrainDance.sol) into a new EVM instance. Once injected, a concurrent binary search is performed to find a optimal input amount that results in the highest revenue. After sandwich calculations, the bot performs a [salmonella](https://github.com/Defi-Cartel/salmonella) check. If the sandwich is salmonella free, the bot then calculates gas bribes and sends bundle. 
 
 Performing EVM simulations in this way allows the bot to detect sandwichable opportunities against any tx that introduces slippage. 
 
 ## Logic Breakdown
-- At startup, index all pools from a specific factory by parsing the `PairCreated` event. And get all token dust stored on sando addy.
+- At startup, index all pools from a specific factory by parsing the `PairCreated` event. And fetch all token dust stored on sando addy.
 - Read and decode tx from mempool.
 - Send tx to [`trace_CallMany`](https://openethereum.github.io/JSONRPC-trace-module#trace_callmany) to obtain `stateDiff`. (could modify to use any other rpc that returns stateDiff)
 - Check if `statediff` contains keys that correspond to indexed pool addresses.
