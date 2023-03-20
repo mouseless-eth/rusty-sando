@@ -1,4 +1,4 @@
-# Contract ![license](https://img.shields.io/badge/License-MIT-green.svg?label=license)
+# Rusty-Sando/Contract ![license](https://img.shields.io/badge/License-MIT-green.svg?label=license)
 
 Gas optimized sando contract written in Huff to make use unconventional gas optimizations. 
 
