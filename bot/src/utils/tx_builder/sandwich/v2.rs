@@ -15,16 +15,21 @@ pub struct EncodedSwapValue {
     four_byte_value: U256,
     mem_offset: U256,
     // real value after encoding
-    real_encoded_value: U256,
+    byte_shift: U256,
 }
 
 impl EncodedSwapValue {
-    fn new(four_byte_value: U256, mem_offset: U256, real_encoded_value: U256) -> Self {
+    fn new(four_byte_value: U256, mem_offset: U256, byte_shift: U256) -> Self {
         Self {
             four_byte_value,
             mem_offset,
-            real_encoded_value,
+            byte_shift,
         }
+    }
+
+    // returns the decoded value after applying byteshift (real value used during swaps)
+    fn decode(&self) -> U256 {
+        self.four_byte_value * (U256::from(2).pow(U256::from(8) * self.byte_shift))
     }
 }
 
@@ -131,16 +136,14 @@ impl SandwichLogicV2 {
 // Encode the swap value into 4 bytes
 //
 // Returns:
-// EncodedSwapValue representing 4 byte value and offset in memory
-// so that an mstore of the 4byte encoded to memoffset `amount` (a little under)
+// EncodedSwapValue representing 4 byte value, and byteshift
 pub fn encode_four_bytes(
     amount: U256,
     is_weth_input: bool,
     is_weth_token0: bool,
 ) -> EncodedSwapValue {
-    let mut encoded_byte_offset = 0;
+    let mut byte_shift = 0;
     let mut four_byte_encoded_value = U256::zero();
-    let mut real_encoded_amount = U256::zero();
 
     for i in 0u8..32u8 {
         let _encoded_amount = amount / 2u128.pow(8 * i as u32);
@@ -148,31 +151,29 @@ pub fn encode_four_bytes(
         // if we can fit the value in 4 bytes (0xFFFFFFFF), we can encode it
         if _encoded_amount <= U256::from(2).pow(U256::from(4 * 8).sub(1)) {
             four_byte_encoded_value = _encoded_amount;
-            encoded_byte_offset = i;
-            real_encoded_amount =
-                four_byte_encoded_value * (U256::from(2).pow(U256::from(8) * encoded_byte_offset));
+            byte_shift = i;
             break;
         }
     }
 
     match (is_weth_input, is_weth_token0) {
-        // offset calculated using 4 + 32 + 32 - 4
+        // memory offset calculated using 4 + 32 + 32 - 4
         (false, _) => EncodedSwapValue::new(
             four_byte_encoded_value,
-            U256::from(64 - encoded_byte_offset),
-            real_encoded_amount,
+            U256::from(64 - byte_shift),
+            U256::from(byte_shift),
         ),
-        // offset calculated using 4 + 32 + 32 - 4
+        // memory offset calculated using 4 + 32 + 32 - 4
         (true, true) => EncodedSwapValue::new(
             four_byte_encoded_value,
-            U256::from(64 - encoded_byte_offset),
-            real_encoded_amount,
+            U256::from(64 - byte_shift),
+            U256::from(byte_shift),
         ),
-        // offset calculated using 4 + 32 - 4
+        // memory offset calculated using 4 + 32 - 4
         (true, false) => EncodedSwapValue::new(
             four_byte_encoded_value,
-            U256::from(32 - encoded_byte_offset),
-            real_encoded_amount,
+            U256::from(32 - byte_shift),
+            U256::from(byte_shift),
         ),
     }
 }
@@ -191,21 +192,22 @@ pub fn encode_intermediary_with_dust(
 
     // makes sure that we keep some dust
     backrun_in.four_byte_value -= U256::from(1);
-    backrun_in.real_encoded_value
+    backrun_in.decode()
 }
 
-/// returns the encoded value of amount in (actual value passed to contract)
-pub fn encode_intermediary(
+/// returns the real amount after encoding + decoding
+/// we lose some byte due to rounding whilst encoding
+pub fn decode_intermediary(
     amount_in: U256,
     is_weth_input: bool,
     intermediary_address: Address,
 ) -> U256 {
-    encode_four_bytes(
+    let encoded = encode_four_bytes(
         amount_in,
         is_weth_input,
         utils::constants::get_weth_address() < intermediary_address,
-    )
-    .real_encoded_value
+    );
+    encoded.decode()
 }
 
 /// returns the encoded value of amount in (actual value passed to contract)

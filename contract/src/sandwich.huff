@@ -29,68 +29,6 @@
 // Swap(address recipient, bool zeroForOne, int256 amountSpecified, uint160 sqrtPriceLimitX96, bytes data)
 #define constant V3_SWAP_SIG = 0x128acb0800000000000000000000000000000000000000000000000000000000
 
-// *****************************************
-// *  UNISWAP V2 CALLDATA ENCODING FORMAT  *
-// *****************************************
-
-// When WETH is input the calldata
-// +-----------+---------------------------+
-// | Bytes     |  Value                    |
-// +-----------+---------------------------+
-// | 1         |  Which label to jump to   |
-// | 20        |  Pair address             |
-// | 1         |  Place in memory          |
-// | 4         |  Amount out ()            |
-// +-----------+---------------------------+
-
-// When WETH is output the calldata
-// +-----------+----------------------------+
-// | Bytes     |  Value                     |
-// +-----------+----------------------------+
-// | 8         |  Which label to jump to    |
-// | 20        |  Pair address              |
-// | 20        |  Other token addr          |
-// | 1         |  Place in memory           |
-// | 4         |  Amount out                |
-// +-----------+----------------------------+
-
-// *****************************************
-// *  UNISWAP V3 CALLDATA ENCODING FORMAT  *
-// *****************************************
-
-// When WETH is input the calldata
-// *-----------*---------------------------*
-// | Bytes     |  Value                    |
-// *-----------+---------------------------*
-// | 8         |  Which label to jump to   |
-// | 20        |  Pair address             |
-// | 32        |  Pair Init Hash           |
-// *-----------*---------------------------*
-
-// When WETH is output the calldata (output big)
-// and amountIn >= 10^13
-// *-----------*---------------------------*
-// | Bytes     |  Value                    |
-// *-----------+---------------------------*
-// | 8         |  Which label to jump to   |
-// | 20        |  Pair address             |
-// | 20        |  input token addr         |
-// | 9         |  Amount in                | * Will be multiplied by 10^13
-// | 32        |  Pair Init Hash           |
-// *-----------*---------------------------*
-
-// When WETH is output the calldata (output small)
-// and amountIn < 10^13
-// *-----------*---------------------------*
-// | Bytes     |  Value                    |
-// *-----------+---------------------------*
-// | 8         |  Which label to jump to   |
-// | 20        |  Pair address             |
-// | 20        |  input token addr         |
-// | 6         |  Amount in                |
-// | 32        |  Pair Init Hash           |
-// *-----------*---------------------------*
-
 // -- SAFETY IMPROVEMENTS --
 //
 // * Make a base fee check for all frontrun methods (check tx.baseFee = block.baseFee)
@@ -110,52 +48,52 @@
     byte                                        // [jumplabel]
     jump                                        // []
 
-// (UniswapV2) Weth is token0 && output && has an offset of 0
+// (UniswapV2) Weth is token0 && output
 v2_output0_astral_gate:
     v2_output0                                // [v2_output0_0_label]
     jump                                      // []
 
-// (UniswapV2) Weth is token0 && input && has an offset of 0
+// (UniswapV2) Weth is token0 && input
 v2_input0_astral_gate:
     v2_input0                                 // [v2_input0_0_label]
     jump                                      // []
 
-// (UniswapV2) Weth is token1 && output && has an offset of 0
+// (UniswapV2) Weth is token1 && output
 v2_output1_astral_gate:
     v2_output1                                // [v2_output1_0_label]
     jump                                      // []
 
-// (UniswapV2) Weth is token1 && input && has an offset of 0
+// (UniswapV2) Weth is token1 && input
 v2_input1_astral_gate:
     v2_input1                                 // [v2_input1_0_label]
     jump                                      // []
 
-// (UniswapV3) Weth is token1 && output && has an offset of 0
+// (UniswapV3) Weth is token1 && output
 v3_output1_big_astral_gate:
     v3_output1_big                              // [v3_output1_label]
     jump                                        // []
 
-// (UniswapV3) Weth is token0 && output && has an offset of 0
+// (UniswapV3) Weth is token0 && output
 v3_output0_big_astral_gate:
     v3_output0_big                              // [v3_output0_label]
     jump                                        // []
 
-// (UniswapV3) Weth is token1 && output && has an offset of 0
+// (UniswapV3) Weth is token1 && output
 v3_output1_small_astral_gate:
     v3_output1_small                            // [v3_output1_label]
     jump                                        // []
 
-// (UniswapV3) Weth is token0 && output && has an offset of 0
+// (UniswapV3) Weth is token0 && output
 v3_output0_small_astral_gate:
     v3_output0_small                            // [v3_output0_label]
     jump                                        // []
 
-// (UniswapV3) Weth is token0 && input && has an offset of 0
+// (UniswapV3) Weth is token0 && input
 v3_input0_astral_gate:
     v3_input0                                   // [v3_input0_label]
     jump                                        // []
 
-// (UniswapV3) Weth is token1 && input && has an offset of 0
+// (UniswapV3) Weth is token1 && input
 v3_input1_astral_gate:
     v3_input1                                   // [v3_input1_label]
     jump                                        // []
@@ -260,7 +198,7 @@ isZeroForOne:
 
 v3_input1:
     // validate msg.sender
-    [SEARCHER] caller eq                       // [is_caller_searcher]
+    [SEARCHER] caller eq                        // [is_caller_searcher]
     iszero                                      // [!is_caller_searcher]
     gtfo                                        // [gtfo_label, is_caller_searcher]
     jumpi                                       // []
@@ -294,7 +232,7 @@ v3_input1:
 // (UniswapV3) Weth is token0 && input && has an offset of 0
 v3_input0:
     // validate msg.sender
-    [SEARCHER] caller eq                       // [is_caller_searcher]
+    [SEARCHER] caller eq                        // [is_caller_searcher]
     iszero                                      // [!is_caller_searcher]
     gtfo                                        // [gtfo_label, is_caller_searcher]
     jumpi                                       // []
@@ -330,7 +268,7 @@ v3_input0:
 // **When amountIn is < 10^13**
 v3_output0_small:
     // validate msg.sender
-    [SEARCHER] caller eq                       // [is_caller_searcher]
+    [SEARCHER] caller eq                        // [is_caller_searcher]
     iszero                                      // [!is_caller_searcher]
     gtfo                                        // [gtfo_label, is_caller_searcher]
     jumpi                                       // []
@@ -365,7 +303,7 @@ v3_output0_small:
 // **When amountIn is < 10^13**
 v3_output1_small:
     // validate msg.sender
-    [SEARCHER] caller eq                       // [is_caller_searcher]
+    [SEARCHER] caller eq                        // [is_caller_searcher]
     iszero                                      // [!is_caller_searcher]
     gtfo                                        // [gtfo_label, is_caller_searcher]
     jumpi                                       // []
@@ -400,7 +338,7 @@ v3_output1_small:
 
 v3_output1_big:
     // validate msg.sender
-    [SEARCHER] caller eq                       // [is_caller_searcher]
+    [SEARCHER] caller eq                        // [is_caller_searcher]
     iszero                                      // [!is_caller_searcher]
     gtfo                                        // [gtfo_label, is_caller_searcher]
     jumpi                                       // []
@@ -436,7 +374,7 @@ v3_output1_big:
 
 v3_output0_big:
     // validate msg.sender
-    [SEARCHER] caller eq                       // [is_caller_searcher]
+    [SEARCHER] caller eq                        // [is_caller_searcher]
     iszero                                      // [!is_caller_searcher]
     gtfo                                        // [gtfo_label, is_caller_searcher]
     jumpi                                       // []
@@ -472,7 +410,7 @@ v3_output0_big:
 // Make swap when Weth is token0 && output
 v2_output0:
     // validate msg.sender
-    [SEARCHER] caller eq                       // [is_caller_searcher]
+    [SEARCHER] caller eq                        // [is_caller_searcher]
     iszero                                      // [!is_caller_searcher]
     gtfo                                        // [gtfo_label, is_caller_searcher]
     jumpi                                       // []
@@ -521,7 +459,7 @@ v2_output0:
 // Make swap when Weth is token1 && output
 v2_output1:
     // validate msg.sender
-    [SEARCHER] caller eq                       // [is_caller_searcher]
+    [SEARCHER] caller eq                        // [is_caller_searcher]
     iszero                                      // [!is_caller_searcher]
     gtfo                                        // [gtfo_label, is_caller_searcher]
     jumpi                                       // []
@@ -571,7 +509,7 @@ v2_output1:
 // Make swap when Weth is token0 && input
 v2_input0:
     // validate msg.sender
-    [SEARCHER] caller eq                       // [is_caller_searcher]
+    [SEARCHER] caller eq                        // [is_caller_searcher]
     iszero                                      // [!is_caller_searcher]
     gtfo                                        // [gtfo_label, is_caller_searcher]
     jumpi                                       // []
@@ -624,7 +562,7 @@ v2_input0:
 // Make swap when Weth is token1 && input
 v2_input1:
     // validate msg.sender
-    [SEARCHER] caller eq                       // [is_caller_searcher]
+    [SEARCHER] caller eq                        // [is_caller_searcher]
     iszero                                      // [!is_caller_searcher]
     gtfo                                        // [gtfo_label, is_caller_searcher]
     jumpi                                       // []

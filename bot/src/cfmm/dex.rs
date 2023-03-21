@@ -100,7 +100,7 @@ pub async fn sync_dex(
 
     let mut handles = vec![];
 
-    // for each dex supplied, get all pair created events and get reserve values
+    // for each dex supplied, get all pair created events
     for dex in dexes {
         let async_provider = client.clone();
         let progress_bar = multi_progress_bar.add(ProgressBar::new(0));
