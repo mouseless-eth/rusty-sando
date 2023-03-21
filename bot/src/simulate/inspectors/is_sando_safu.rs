@@ -89,12 +89,6 @@ impl<DB: Database> Inspector<DB> for SalmonellaInspectoooor {
         _data: &mut EVMData<'_, DB>,
         _is_static: bool,
     ) -> InstructionResult {
-        //self.gas_inspector.step(interp, data, is_static);
-        //self.stack = interp.stack.clone();
-        //self.pc = interp.program_counter();
-        //let opcode = interp.current_opcode();
-        //self.mem_size = interp.memory.len();
-        //self.gas = self.gas_inspector.gas_remaining();
         let executed_opcode = interp.current_opcode();
 
         let mut add_suspicious = |opcode: OpCode| self.suspicious_opcodes.push(opcode);
@@ -103,7 +97,7 @@ impl<DB: Database> Inspector<DB> for SalmonellaInspectoooor {
         let executed_opcode = OpCode::new_from_code(executed_opcode);
 
         match executed_opcode.code {
-            // these opcodes can be used to divert execution flow when ran locally vs mainnet
+            // these opcodes can be used to divert execution flow when ran locally vs on mainnet
             // extra safe version, can easily ignore half of these checks if ur up for it
             opcode::BALANCE => add_suspicious(executed_opcode.clone()),
             opcode::GASPRICE => add_suspicious(executed_opcode.clone()),

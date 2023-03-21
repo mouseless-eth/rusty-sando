@@ -22,7 +22,7 @@ contract ModSandwichV4 is Test {
     address keeperdao = 0x9a67F1940164d0318612b497E8e6038f902a00a4;
 
     // serachers
-    address constant admin = 0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf;
+    address constant admin = 0x6E5F4552091a69125D5DfCB7B8c2659029395Bdf;
     address constant helper = 0x2B5AD5c4795c026514f8317c7a215E218DcCD6cF;
 
     IWETH weth = IWETH(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
@@ -112,7 +112,7 @@ contract ModSandwichV4 is Test {
 
         (address inputToken, address outputToken) = (token1, token0);
 
-        // fund sandwich contract from sugardaddy
+        // fund sandwich contract
         vm.startPrank(keeperdao);
         IUSDT(inputToken).transfer(sandwich, uint256(amountIn));
 
@@ -137,7 +137,7 @@ contract ModSandwichV4 is Test {
 
         int256 amountIn = 100000 ether; // 100000 btt
 
-        // fund sandwich contract from sugardaddy
+        // fund sandwich contract
         vm.startPrank(0x222DAADE4219e5D1BE1efdF24326d7482B8A3A9b);
         IUSDT(inputToken).transfer(sandwich, uint256(amountIn));
 
@@ -162,7 +162,7 @@ contract ModSandwichV4 is Test {
 
         int256 amountIn = 1e6; // 100 usdc
 
-        // fund sandwich contract from sugardaddy
+        // fund sandwich contract
         vm.prank(binance8);
         IERC20(inputToken).transfer(sandwich, uint256(amountIn));
 
@@ -186,7 +186,7 @@ contract ModSandwichV4 is Test {
         (address inputToken, address outputToken) = (token0, token1);
         int256 amountIn = 1e21; // 1000 dai
 
-        // fund sandwich contract from sugardaddy
+        // fund sandwich contract
         vm.startPrank(binance8);
         IERC20(inputToken).transfer(sandwich, uint256(amountIn));
 

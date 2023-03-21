@@ -107,19 +107,39 @@ async fn juiced_quadratic_search(
     }
 
     // setup values for search termination
-    let base = U256::from(100000_u64);
+    let base = U256::from(1000000u64);
     let tolerance = U256::from(1u64);
+
+    let tolerance = (tolerance * ((upper_bound + lower_bound) / 2)) / base;
 
     // initialize variables for search
     let left_interval_lower = |i: usize, intervals: &Vec<U256>| intervals[i - 1].clone() + 1;
     let right_interval_upper = |i: usize, intervals: &Vec<U256>| intervals[i + 1].clone() - 1;
-    let mut highest_sando_input;
+    let should_loop_terminate = |lower_bound: U256, upper_bound: U256| -> bool {
+        let search_range = match upper_bound.checked_sub(lower_bound) {
+            Some(range) => range,
+            None => return true,
+        };
+        // produces negative result
+        if lower_bound > upper_bound {
+            return true;
+        }
+        // tolerance condition not met
+        if search_range < tolerance {
+            return true;
+        }
+        false
+    };
+    let mut highest_sando_input = U256::zero();
     let number_of_intervals = 15;
     let mut counter = 0;
 
     // continue search until termination condition is met (no point seraching down to closest wei)
     loop {
         counter += 1;
+        if should_loop_terminate(lower_bound, upper_bound) {
+            break;
+        }
 
         // split search range into intervals
         let mut intervals = Vec::new();
@@ -166,17 +186,14 @@ async fn juiced_quadratic_search(
             continue;
         }
 
-        // if highest revenue is produced at last interval
+        // if highest revenue is produced at last interval (upper bound stays fixed)
         if highest_revenue_index == intervals.len() - 1 {
-            // hit upper bound (upper bound stays fixed)
             lower_bound = left_interval_lower(highest_revenue_index, &intervals);
-            //upper_bound = right_interval_upper(highest_revenue_index, &intervals);
             continue;
         }
 
         // if highest revenue is produced at first interval (lower bound stays fixed)
         if highest_revenue_index == 0 {
-            //lower_bound = left_interval_lower(highest_revenue_index, &intervals);
             upper_bound = right_interval_upper(highest_revenue_index, &intervals);
             continue;
         }
@@ -184,17 +201,8 @@ async fn juiced_quadratic_search(
         // set bounds to intervals adjacent to highest revenue index and search again
         lower_bound = left_interval_lower(highest_revenue_index, &intervals);
         upper_bound = right_interval_upper(highest_revenue_index, &intervals);
-
-        let search_range = match upper_bound.checked_sub(lower_bound) {
-            Some(range) => range,
-            None => break,
-        };
-        if search_range < ((tolerance * ((upper_bound + lower_bound) / 2)) / base) {
-            break;
-        }
     }
 
-    // Return the floor (avoid overestimation error which may kill opportunity)
     Ok(highest_sando_input)
 }
 
@@ -249,7 +257,7 @@ fn sanity_check(
             evm.env.tx.value = rU256::ZERO;
             let amount_out =
                 get_amount_out_evm(frontrun_in, target_pool, token_in, token_out, &mut evm)?;
-            tx_builder::v2::encode_intermediary(amount_out, true, token_out)
+            tx_builder::v2::decode_intermediary(amount_out, true, token_out)
         }
         PoolVariant::UniswapV3 => U256::zero(),
     };
@@ -342,7 +350,7 @@ fn sanity_check(
         }
 
         // keep track of which meat transactions are successful to filter reverted meats at end
-        // filter reverted meats because gas cost of mempool txs are accounted for by fb
+        // remove reverted meats because mempool tx/s gas costs are accounted for by fb
         let res = match evm.transact_commit() {
             Ok(result) => result,
             Err(e) => return Err(SimulationError::EvmError(e)),
@@ -707,7 +715,7 @@ mod test {
 
         match super::create_optimal_sandwich(
             &ingredients,
-            ethers::utils::parse_ether("420").unwrap(),
+            ethers::utils::parse_ether("50").unwrap(),
             &testhelper::get_next_block_info(fork_block_num, &ws_provider).await,
             &mut db,
             &SandwichMaker::new().await,
@@ -721,15 +729,15 @@ mod test {
     }
 
     #[test]
-    fn sandv2_uni() {
-        // Can't use [tokio::test] attr with ethersdb for some reason
+    fn sandv2_sushi_router() {
+        // Can't use [tokio::test] attr with `global_backed` for some reason
         // so manually create a runtime
         let rt = Runtime::new().unwrap();
         rt.block_on(async {
             create_test(
-                16863388,
-                "0x55f26293a2cF63589fdb4aE60E286Cfd6b40595C",
-                vec!["0x2a91e14d091fd31d281facc995f6c3cc7a282c37df6dca0c022ad5f9bb7d672f"],
+                16873147,
+                "0xB84C45174Bfc6b8F3EaeCBae11deE63114f5c1b2",
+                vec!["0xb344fdc6a3b7c65c5dd971cb113567e2ee6d0636f261c3b8d624627b90694cdb"],
                 true,
             )
             .await;
@@ -738,7 +746,7 @@ mod test {
 
     #[test]
     fn sandv3_uniswap_universal_router_one() {
-        // Can't use [tokio::test] attr with ethersdb for some reason
+        // Can't use [tokio::test] attr with `global_backed` for some reason
         // so manually create a runtime
         let rt = Runtime::new().unwrap();
         rt.block_on(async {
@@ -754,7 +762,7 @@ mod test {
 
     #[test]
     fn sandv3_uniswap_universal_router_two() {
-        // Can't use [tokio::test] attr with ethersdb for some reason
+        // Can't use [tokio::test] attr with `global_backed` for some reason
         // so manually create a runtime
         let rt = Runtime::new().unwrap();
         rt.block_on(async {
@@ -770,7 +778,7 @@ mod test {
 
     #[test]
     fn sandv2_kyber_swap() {
-        // Can't use [tokio::test] attr with ethersdb for some reason
+        // Can't use [tokio::test] attr with `global_backed` for some reason
         // so manually create a runtime
         let rt = Runtime::new().unwrap();
         rt.block_on(async {
@@ -786,7 +794,7 @@ mod test {
 
     #[test]
     fn sandv2_non_sandwichable() {
-        // Can't use [tokio::test] attr with ethersdb for some reason
+        // Can't use [tokio::test] attr with `global_backed` for some reason
         // so manually create a runtime
         let rt = Runtime::new().unwrap();
         rt.block_on(async {
@@ -802,7 +810,7 @@ mod test {
 
     #[test]
     fn sandv2_multi_with_three_expect_one_reverts() {
-        // Can't use [tokio::test] attr with ethersdb for some reason
+        // Can't use [tokio::test] attr with `global_backed` for some reason
         // so manually create a runtime
         let rt = Runtime::new().unwrap();
         rt.block_on(async {
@@ -822,7 +830,7 @@ mod test {
 
     #[test]
     fn sandv2_multi_two() {
-        // Can't use [tokio::test] attr with ethersdb for some reason
+        // Can't use [tokio::test] attr with `global_backed` for some reason
         // so manually create a runtime
         let rt = Runtime::new().unwrap();
         rt.block_on(async {
@@ -839,38 +847,16 @@ mod test {
         });
     }
 
-    // can only do this once encoding type is fixed
     #[test]
-    fn sandv2_multi_four() {
-        // Can't use [tokio::test] attr with ethersdb for some reason
+    fn sandv2_metamask_swap_router() {
+        // Can't use [tokio::test] attr with `global_backed` for some reason
         // so manually create a runtime
         let rt = Runtime::new().unwrap();
         rt.block_on(async {
             create_test(
-                16777150,
-                "2bf64a137b080c4ec736c4c1140c496e294dd830",
-                vec![
-                    "0x4aa242241b10015f297757593e7b53b422f16dee4554adfeca1c6e6d6eaf8c6d",
-                    "0x92129ff45324595a37ed395d596d7e5c18ecb2a13a234027bdc7e9a04f6e8366",
-                    "0x0ca5fa291e0c2be77b03dfcc3f401f878bac1dfdf58a9e9bb0743d84248d4089",
-                    "0x7a26713b13d8f773ab6dd4c90a6bc6182c8061958bf410c3f93cf589042625e9",
-                ],
-                true,
-            )
-            .await;
-        });
-    }
-
-    #[test]
-    fn sandv2_1inch() {
-        // Can't use [tokio::test] attr with ethersdb for some reason
-        // so manually create a runtime
-        let rt = Runtime::new().unwrap();
-        rt.block_on(async {
-            create_test(
-                16863276,
-                "0x9556E7c0461bd2C8d89bDD4a6B0a4b855572cA6E",
-                vec!["0x0ba8f0c48d36ec6967ee13e785de82edbf5e3217eeee3f9a92e9a57a5239f939"],
+                16873743,
+                "0x7A9dDcf06260404D14AbE3bE99c1804D2A5239ce",
+                vec!["0xcce01725bf7abfab3a4a533275cb4558a66d7794153b4ec01debaf5abd0dc21f"],
                 true,
             )
             .await;
