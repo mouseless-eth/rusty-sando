@@ -129,5 +129,11 @@ All calldata is encoded by packing the values together.
 ```console
 forge test --rpc-url <your-rpc-url-here>
 ```
+> **Note** 
+> Due to the changing state of the latest blocks, you may need to specify a block height to complete the test. Here is the code with the block height for the test to pass.
+
+```console
+forge test --rpc-url <your-rpc-url-here> --fork-block-number 17401879
+```
 ## Benchmarks
 !todo
