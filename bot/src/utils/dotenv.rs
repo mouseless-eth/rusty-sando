@@ -88,3 +88,10 @@ pub fn poison_alert_webhook() -> String {
     dotenv::var("POISON_ALERT_DISCORD_WEBHOOK")
         .expect("Required environment variable \"POISON_ALERT_DISCORD_WEBHOOK\" not set")
 }
+/// Return a interval block for update new pools info
+pub fn get_interval_block_new_pool() -> u64 {
+    dotenv::var("INTERVAL_BLOCK_NEW_POOL")
+        .expect("Required environment variable \"INTERVAL_BLOCK_NEW_POOL\" not set")
+        .parse()
+        .expect("INTERVAL_BLOCK_NEW_POOL is not a valid u64")
+}
