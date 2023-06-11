@@ -460,13 +460,13 @@ contract ModSandwichV4 is Test {
     }
 
     function testV2Weth1Output() public {
-        address inputToken = 0xD533a949740bb3306d119CC777fa900bA034cd52; // CRV
+        address inputToken = 0x6B175474E89094C44Da98b954EedeAC495271d0F; // DAI
         uint256 amountIn = 4722.366481770134 ether; // encoded as 0xFFFFFFFF0000000000
 
         console.log("amountIn:", amountIn);
 
         // Fund sandwich
-        vm.prank(binance8);
+        vm.prank(0x47ac0Fb4F2D84898e4D9E7b4DaB3C24507a6D503);
         IERC20(inputToken).transfer(sandwich, amountIn);
 
         // Pre swap checks
