@@ -35,6 +35,7 @@ contract BrainDanceTest is Test {
         wrappedEther.transfer(address(brainDance), 10e18);
     }
 
+    /// @notice Test swapping weth to usdc and back
     function testUniswapV3() public {
         address usdc = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
         address usdcWethPool = 0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640; // 500 fee pool
@@ -58,6 +59,7 @@ contract BrainDanceTest is Test {
         );
     }
 
+    /// @notice Test swapping weth to usdc and back
     function testUniswapV2() public {
         address usdc = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
         address usdcWethPair = _getPairUniV2(usdc, address(weth));
@@ -81,6 +83,7 @@ contract BrainDanceTest is Test {
         );
     }
 
+    /// @notice Get the deployed BrainDance bytecode (we inject this into evm instances for simulations)
     function testGetBrainDanceCode() public {
         bytes memory code = address(brainDance).code;
         emit log_bytes(code);
