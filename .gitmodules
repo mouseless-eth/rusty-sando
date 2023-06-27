@@ -13,3 +13,6 @@
 [submodule "contract/lib/v2-periphery"]
 	path = contract/lib/v2-periphery
 	url = https://github.com/Uniswap/v2-periphery
+[submodule "contract/lib/solmate"]
+	path = contract/lib/solmate
+	url = https://github.com/transmissions11/solmate

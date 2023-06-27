@@ -16,4 +16,5 @@ remappings = [
   "v2-core/=lib/v2-core/contracts/",
   "v2-periphery/=lib/v2-periphery/contracts/",
   "v3-core/=lib/v3-core/contracts/",
+  "solmate=lib/solmate/src/",
 ]
