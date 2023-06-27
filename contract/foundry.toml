@@ -1,4 +1,3 @@
-
 [profile.default]
 solc_version = '0.8.15'
 auto_detect_solc = false
@@ -16,5 +15,7 @@ remappings = [
   "v2-core/=lib/v2-core/contracts/",
   "v2-periphery/=lib/v2-periphery/contracts/",
   "v3-core/=lib/v3-core/contracts/",
+  "v3-periphery/=lib/v3-periphery/contracts/",
   "solmate=lib/solmate/src/",
 ]
+eth-rpc-url = "http://localhost:8545"
