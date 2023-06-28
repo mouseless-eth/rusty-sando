@@ -19,3 +19,4 @@ remappings = [
   "solmate=lib/solmate/src/",
 ]
 eth-rpc-url = "http://localhost:8545"
+evm_version = "shanghai"
