@@ -43,7 +43,7 @@ When dealing with the other token amount, the values can range significantly dep
 
 We use byte shifts instead of bitshifts because we perform a byteshift by storing the 4bytes in memory N bytes to the left of its memory slot. 
 
-To optimize further, instead of encoding the byteshift into our calldata, we encode the offset in memory such that when the 4bytes are stored, it will be N bytes from the left of its storage slot. [more detail](https://github.com/mouseless-eth/rusty-sando/blob/1a0f775a00ae932f64d7e926605134892fcf56f9/contract/test/misc/V2SandoUtility.sol#L28).
+To optimize further, instead of encoding the byteshift into our calldata, we encode the offset in memory such that when the 4bytes are stored, it will be N bytes from the left of its storage slot. [more details](https://github.com/mouseless-eth/rusty-sando/blob/1a0f775a00ae932f64d7e926605134892fcf56f9/contract/test/misc/V2SandoUtility.sol#L28).
 
 > **Note** 
 > Free alfa: Might be able to optimize contract by eliminating unnecessary [memory expansions](https://www.evm.codes/about#memoryexpansion) by changing order that params are stored in memory. I did not account for this when writing the contract. 
