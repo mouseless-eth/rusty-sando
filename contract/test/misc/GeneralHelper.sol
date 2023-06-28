@@ -4,6 +4,7 @@ pragma solidity ^0.8.15;
 import "v2-core/interfaces/IUniswapV2Pair.sol";
 import "v2-core/interfaces/IUniswapV2Factory.sol";
 import "v2-periphery/interfaces/IUniswapV2Router02.sol";
+import "forge-std/console.sol";
 
 library GeneralHelper {
     function getAmountOut(address inputToken, address outputToken, uint256 amountIn)

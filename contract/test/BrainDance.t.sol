@@ -89,7 +89,9 @@ contract BrainDanceTest is Test {
         emit log_bytes(code);
     }
 
-    // HELPERS
+    // -------------
+    // -- HELPERS --
+    // -------------
     function _quoteV3Swap(int256 amountIn, address _pool, address tokenIn, address tokenOut)
         private
         returns (uint256 amountOut)
