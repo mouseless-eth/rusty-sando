@@ -11,22 +11,24 @@ library V2SandoUtility {
     /**
      * @notice Encodes the other token value to 5 bytes of calldta
      * @dev For frontrun, otherTokenValue indicates swapAmount (pool's amountOut)
-     * @dev For frontrun, otherTokenValue indicates swapAmount (pool's amountOut)
+     * @dev For backrun, otherTokenValue indicates amount to send to pool (pool's amountIn)
      * @dev 4 bytes reserved for encodeValue
      * @dev 1 byte reserved for storage slot to store in
      * @dev THIS IS ONLY A V2 METHOD
+     *
+     * @dev Encoding schema: fits any uint256 (32 byte value) into 5 bytes. 4 bytes reserved for a value,
+     * 1 byte reserved for storage slot to store the 4 byte value in.
      *
      * @param amount The amount to be encoded
      * @param isTxFrontrun A flag indicating if the input token is WETH (frontrun)
      * @param isWethToken0 A flag indicating if the token0 is WETH
      * @return fourByteValue The encoded amount (4 byte)
      * @return memLocation Where should the 4 bytes be stored in memory
-     * @return realAmountAfterEncoding The amount after encoding, shifted by the byte offset
      */
-    function encodeOtherTokenToFiveBytes(uint256 amount, bool isTxFrontrun, bool isWethToken0)
+    function encodeFiveByteSchema(uint256 amount, bool isTxFrontrun, bool isWethToken0)
         public
         pure
-        returns (uint32 fourByteValue, uint8 memLocation, uint256 realAmountAfterEncoding)
+        returns (uint32 fourByteValue, uint8 memLocation)
     {
         uint8 numBytesToEncodeTo = 4;
         uint8 byteShift = 0; // how many byte shifts are needed to store value into four bytes?
@@ -34,11 +36,9 @@ library V2SandoUtility {
         while (byteShift < 32) {
             uint256 _encodedAmount = amount / 2 ** (8 * byteShift);
 
-            // If we can fit the value in numBytesToEncodeTo bytes, we can encode it
+            // If we can fit the value in 4 bytes, we can encode it
             if (_encodedAmount <= 2 ** (numBytesToEncodeTo * (8)) - 1) {
-                //uint encodedAmount = amountOutAfter * 2**(8*i);
                 fourByteValue = uint32(_encodedAmount);
-                realAmountAfterEncoding = uint256(fourByteValue) << (uint256(byteShift) * 8);
                 break;
             }
 
@@ -86,6 +86,35 @@ library V2SandoUtility {
     }
 
     /**
+     * @notice Encodes and decodes an amount using the five-byte schema
+     * @dev The function takes an original amount, encodes it to fit into the five-byte schema, and then decodes it.
+     * The schema used for encoding involves reducing the original amount to fit into four bytes, and the final encoded amount is obtained by
+     * left shifting the four-byte value by the number of byte shifts.
+     *
+     * @param amount The original amount to be encoded and then decoded
+     * @return realAmountAfterEncoding The amount after being encoded and then decoded
+     */
+    function encodeAndDecodeFiveByteSchema(uint256 amount) public pure returns (uint256 realAmountAfterEncoding) {
+        uint8 numBytesToEncodeTo = 4;
+        uint8 byteShift = 0; // how many byte shifts are needed to store value into four bytes?
+
+        while (byteShift < 32) {
+            uint256 _encodedAmount = amount / 2 ** (8 * byteShift);
+
+            // If we can fit the value in 4 bytes, we can encode it
+            if (_encodedAmount <= 2 ** (numBytesToEncodeTo * (8)) - 1) {
+                uint32 fourByteValue = uint32(_encodedAmount);
+                realAmountAfterEncoding = uint256(fourByteValue) << (uint256(byteShift) * 8);
+                break;
+            }
+
+            byteShift++;
+        }
+
+        return realAmountAfterEncoding;
+    }
+
+    /**
      * @notice Utility function to create payload for our v2 backruns
      * @return payload Calldata bytes to execute backruns
      * @return encodedValue Encoded `tx.value` indicating WETH amount to send
@@ -101,8 +130,8 @@ library V2SandoUtility {
         address pair = address(IUniswapV2Pair(univ2Factory.getPair(weth, address(otherToken))));
 
         // encode amountIn
-        (uint32 fourByteEncoded, uint8 memoryOffset, uint256 amountInActual) =
-            encodeOtherTokenToFiveBytes(amountIn, false, false);
+        (uint32 fourByteEncoded, uint8 memoryOffset) = encodeFiveByteSchema(amountIn, false, false);
+        uint256 amountInActual = encodeAndDecodeFiveByteSchema(amountIn);
 
         payload = abi.encodePacked(
             _v2FindFunctionSig(false, otherToken), // token we're giving
@@ -135,7 +164,7 @@ library V2SandoUtility {
         uint256 amountInActual = (amountIn / SandoCommon.wethEncodeMultiple()) * SandoCommon.wethEncodeMultiple();
 
         // Get amounts out and encode it
-        (uint256 fourByteEncoded, uint256 memoryOffset,) = encodeOtherTokenToFiveBytes(
+        (uint256 fourByteEncoded, uint256 memoryOffset) = encodeFiveByteSchema(
             GeneralHelper.getAmountOut(weth, outputToken, amountInActual), true, weth < outputToken
         );
 

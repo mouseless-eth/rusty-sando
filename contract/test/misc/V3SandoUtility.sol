@@ -39,7 +39,7 @@ library V3SandoUtility {
         (address token0, address token1) = inputToken < weth ? (inputToken, weth) : (weth, inputToken);
         bytes32 pairInitHash = keccak256(abi.encode(token0, token1, fee));
 
-        if (amountIn <= 281474976710655) {
+        if (amountIn <= int256(uint256(0xFFFFFFFFFFFF))) {
             // use small method
             payload = abi.encodePacked(
                 _v3FindFunctionSig(false, inputToken, amountIn),
@@ -74,9 +74,11 @@ library V3SandoUtility {
             functionSignature = weth < outputToken ? "v3_frontrun0" : "v3_frontrun1";
         } else {
             if (weth > outputToken) {
-                functionSignature = amountIn <= 281474976710655 ? "v3_backrun1_small" : "v3_backrun1_big";
+                functionSignature =
+                    amountIn <= int256(uint256(0xFFFFFFFFFFFF)) ? "v3_backrun1_small" : "v3_backrun1_big";
             } else {
-                functionSignature = amountIn <= 281474976710655 ? "v3_backrun0_small" : "v3_backrun0_big";
+                functionSignature =
+                    amountIn <= int256(uint256(0xFFFFFFFFFFFF)) ? "v3_backrun0_small" : "v3_backrun0_big";
             }
         }
 

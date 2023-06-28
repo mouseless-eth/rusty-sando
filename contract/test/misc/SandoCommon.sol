@@ -14,6 +14,10 @@ library SandoCommon {
         return 1e5;
     }
 
+    function wethAfterEncoding(uint256 amount) public pure returns (uint256 amountOut) {
+        amountOut = (amount / wethEncodeMultiple()) * wethEncodeMultiple();
+    }
+
     /**
      * @notice This function is used to look up the JUMPDEST for a given function name
      * @param functionName The name of the function we want to jump to
