@@ -221,7 +221,7 @@ v3_frontrun1:
     // data part used for callback
     0xa0 0x84 mstore // 100                     // [pair_address, value, argoffset, argsize, retoffset, retsize] - mstore(132, 0x80) *dynamic byte offset
     0x35 0xa4 mstore                            // [pair_address, value, argoffset, argsize, retoffset, retsize] - mstore(164, 0x02) *dynamic byte length
-    // ** abi.encodePacked(isZeroForOne, input_token, pair_address)
+    // ** abi.encodePacked(isZeroForOne, input_token, pool_key_hash)
     [WETH] 0x58 shl 0xc4 mstore                 // [pair_address, value, argoffset, argsize, retoffset, retsize] - mstore(196, isZeroForOne_&_InputTokenAddr)
     0x15 calldataload 0xd9 mstore               // [pair_address, value, argoffset, argsize, retoffset, retsize] - mstore(217, pool_key_hash)
 
@@ -255,7 +255,7 @@ v3_frontrun0:
     // data part used for callback
     0xa0 0x84 mstore // 100                     // [pair_address, value, argoffset, argsize, retoffset, retsize] - mstore(132, 0x80) *dynamic byte offset
     0x35 0xa4 mstore                            // [pair_address, value, argoffset, argsize, retoffset, retsize] - mstore(164, 0x02) *dynamic byte length
-    // ** abi.encodePacked(isZeroForOne, input_token, pair_address)
+    // ** abi.encodePacked(isZeroForOne, input_token, pool_key_hash)
     0x0100000000000000000000000000000000000000000000000000000000000000
     [WETH] 0x58 shl add 0xc4 mstore             // [pair_address, value, argoffset, argsize, retoffset, retsize] - mstore(196, isZeroForOne_&_InputTokenAddr)
     0x15 calldataload 0xd9 mstore               // [pair_address, value, argoffset, argsize, retoffset, retsize] - mstore(217, pool_key_hash)
