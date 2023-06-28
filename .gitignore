@@ -5,3 +5,4 @@ contract/cache
 .env
 output.log
 __TEMP__*
+run-*.json
