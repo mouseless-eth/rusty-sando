@@ -15,7 +15,7 @@ ethers-flashbots = { git = "https://github.com/onbjerg/ethers-flashbots" }
 ethers = {version = "2.0.0", features = ["abigen", "ws"]}
 revm = {version = "3.0.0", features = ["ethersdb", "serde", "std"]}
 dotenv = "0.15.0"
-hashbrown = "0.13.2"
+hashbrown = "0.14.0"
 tokio = { version = "1", features = ["full"] }
 log = "0.4.17"
 url = "2.3.1"

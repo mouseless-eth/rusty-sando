@@ -76,9 +76,8 @@ pub fn start_add_new_pools(all_pools: &mut Arc<DashMap<Address, Pool>>, dexes: V
 
             while let Some(block) = block_stream.next().await {
                 counter += 1;
-
-                // every 50 blocks fetch and new pools
-                if counter == 50 {
+                let interval_block_new_pool = utils::dotenv::get_interval_block_new_pool();
+                if counter == interval_block_new_pool {
                     let latest_block_number = block.number.unwrap();
                     let fetched_new_pools = sync_dex(
                         dexes.clone(),
