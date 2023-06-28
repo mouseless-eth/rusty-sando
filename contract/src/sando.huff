@@ -110,7 +110,7 @@ recover_weth_astral_gate:
     recover_weth                                // [recover_weth_label]
     jump                                        // []
 
-// wall of stops used so that the jumpdest of callback label equals 0xfa
+// wall of stops used so that the jumpdest of callback JUMPDEST equals 0xfa
 // 0xfa = first byte of function sig 0xfa461e33
 stop stop stop stop stop stop stop stop stop stop stop stop stop
 stop stop stop stop stop stop stop stop stop stop stop stop stop
@@ -125,7 +125,7 @@ stop stop stop stop stop stop stop stop stop stop stop stop stop
 stop stop stop stop stop stop stop stop stop stop stop stop stop
 stop stop stop stop stop stop stop stop stop stop stop stop stop
 stop stop stop stop stop stop stop stop stop stop stop stop stop
-stop stop stop stop stop stop stop stop stop stop
+stop stop stop stop stop stop stop stop stop stop stop
 
 // calldata: int256 amount0Delta, int256 amount1Delta, bytes data
 uniswap_v3_callback:
