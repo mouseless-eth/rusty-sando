@@ -23,7 +23,7 @@ library V2SandoUtility {
      * @param isTxFrontrun A flag indicating if the input token is WETH (frontrun)
      * @param isWethToken0 A flag indicating if the token0 is WETH
      * @return fourByteValue The encoded amount (4 byte)
-     * @return memLocation Where should the 4 bytes be stored in memory
+     * @return memLocation Where should the 4 bytes be stored in memory (1 byte)
      */
     function encodeFiveByteSchema(uint256 amount, bool isTxFrontrun, bool isWethToken0)
         public
