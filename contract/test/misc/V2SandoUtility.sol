@@ -14,7 +14,7 @@ library V2SandoUtility {
      * @dev For backrun, otherTokenValue indicates amount to send to pool (pool's amountIn)
      * @dev 4 bytes reserved for encodeValue
      * @dev 1 byte reserved for storage slot to store in
-     * @dev THIS IS ONLY A V2 METHOD
+     * @dev 5 BYTE ENCODE SCHEMA IS USED ONLY FOR UNIV2
      *
      * @dev Encoding schema: fits any uint256 (32 byte value) into 5 bytes. 4 bytes reserved for a value,
      * 1 byte reserved for storage slot to store the 4 byte value in.
