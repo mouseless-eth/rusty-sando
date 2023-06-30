@@ -96,15 +96,17 @@ contract SandoTest is Test {
         assertFalse(s, "only pools should be able to call callback");
     }
 
-    function testV3FrontrunWeth1() public {
+    function testV3FrontrunWeth1(uint256 inputWethAmount) public {
         address pool = 0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640; // USDC - WETH
         (address token0, address token1, uint24 fee) = _getV3PoolInfo(pool);
-        int256 amountIn = 1.2345678912341234 ether;
+
+        // make sure fuzzed value is within bounds
+        inputWethAmount = bound(inputWethAmount, SandoCommon.wethEncodeMultiple(), weth.balanceOf(sando));
 
         (, address outputToken) = (token1, token0);
 
         (bytes memory payload, uint256 encodedValue) =
-            V3SandoUtility.v3CreateFrontrunPayload(pool, outputToken, fee, amountIn);
+            V3SandoUtility.v3CreateFrontrunPayload(pool, outputToken, fee, int256(inputWethAmount));
 
         vm.prank(searcher, searcher);
         (bool s,) = address(sando).call{value: encodedValue}(payload);
@@ -112,15 +114,17 @@ contract SandoTest is Test {
         assertTrue(s, "calling swap failed");
     }
 
-    function testV3FrontrunWeth0() public {
+    function testV3FrontrunWeth0(uint256 inputWethAmount) public {
         address pool = 0x7379e81228514a1D2a6Cf7559203998E20598346; // ETH - STETH
         (address token0, address token1, uint24 fee) = _getV3PoolInfo(pool);
-        int256 amountIn = 1.2345678912341234 ether;
+
+        // make sure fuzzed value is within bounds
+        inputWethAmount = bound(inputWethAmount, SandoCommon.wethEncodeMultiple(), weth.balanceOf(sando));
 
         (address outputToken,) = (token1, token0);
 
         (bytes memory payload, uint256 encodedValue) =
-            V3SandoUtility.v3CreateFrontrunPayload(pool, outputToken, fee, amountIn);
+            V3SandoUtility.v3CreateFrontrunPayload(pool, outputToken, fee, int256(inputWethAmount));
 
         vm.prank(searcher, searcher);
         (bool s,) = address(sando).call{value: encodedValue}(payload);
@@ -128,72 +132,40 @@ contract SandoTest is Test {
         assertTrue(s, "calling swap failed");
     }
 
-    function testV3BackrunWeth0Small() public {
-        address pool = 0x7379e81228514a1D2a6Cf7559203998E20598346; // ETH - STETH
-        (address token0, address token1, uint24 fee) = _getV3PoolInfo(pool);
-        int256 amountIn = 1e6; // 100 usdt
-
-        (address inputToken,) = (token1, token0);
-
-        // fund sando contract
-        vm.startPrank(0xa48a523F3e0f1A9232BfE22bB6aE07Bb44bF36F1);
-        IUSDT(inputToken).transfer(sando, uint256(amountIn));
-
-        bytes memory payload = V3SandoUtility.v3CreateBackrunPayload(pool, inputToken, fee, amountIn);
-
-        changePrank(searcher);
-        (bool s,) = address(sando).call(payload);
-        assertTrue(s, "v3 swap failed");
-    }
-
-    function testV3BackrunWeth0Big() public {
+    function testV3BackrunWeth0(uint256 inputBttAmount) public {
         address pool = 0x64A078926AD9F9E88016c199017aea196e3899E1;
         (address token0, address token1, uint24 fee) = _getV3PoolInfo(pool);
         (address inputToken,) = (token1, token0);
 
-        int256 amountIn = 100000 ether; // 100000 btt
+        // make sure fuzzed value is within bounds
+        address sugarDaddy = 0x9277a463A508F45115FdEaf22FfeDA1B16352433;
+        inputBttAmount = bound(inputBttAmount, 1, ERC20(inputToken).balanceOf(sugarDaddy));
 
         // fund sando contract
-        vm.startPrank(0x9277a463A508F45115FdEaf22FfeDA1B16352433);
-        IUSDT(inputToken).transfer(sando, uint256(amountIn));
+        vm.startPrank(sugarDaddy);
+        IUSDT(inputToken).transfer(sando, uint256(inputBttAmount));
 
-        bytes memory payload = V3SandoUtility.v3CreateBackrunPayload(pool, inputToken, fee, amountIn);
+        bytes memory payload = V3SandoUtility.v3CreateBackrunPayload(pool, inputToken, fee, int256(inputBttAmount));
 
         changePrank(searcher, searcher);
         (bool s,) = address(sando).call(payload);
         assertTrue(s, "calling swap failed");
     }
 
-    function testV3BackrunWeth1Small() public {
+    function testV3BackrunWeth1(uint256 inputDaiAmount) public {
         address pool = 0xC2e9F25Be6257c210d7Adf0D4Cd6E3E881ba25f8;
         (address token0, address token1, uint24 fee) = _getV3PoolInfo(pool);
         (address inputToken,) = (token0, token1);
-        int256 amountIn = 1e6; // 1000 dai
+
+        // make sure fuzzed value is within bounds
+        address sugarDaddy = 0x5d3a536E4D6DbD6114cc1Ead35777bAB948E3643;
+        inputDaiAmount = bound(inputDaiAmount, 1, ERC20(inputToken).balanceOf(sugarDaddy));
 
         // fund sando contract
-        vm.startPrank(0x5d3a536E4D6DbD6114cc1Ead35777bAB948E3643);
-        ERC20(inputToken).transfer(sando, uint256(amountIn));
+        vm.startPrank(sugarDaddy);
+        ERC20(inputToken).transfer(sando, uint256(inputDaiAmount));
 
-        bytes memory payload = V3SandoUtility.v3CreateBackrunPayload(pool, inputToken, fee, amountIn);
-
-        changePrank(searcher, searcher);
-        (bool s,) = address(sando).call(payload);
-        assertTrue(s, "calling swap failed");
-    }
-
-    function testV3BackrunWeth1Big() public {
-        address pool = 0xC2e9F25Be6257c210d7Adf0D4Cd6E3E881ba25f8;
-        (address token0, address token1, uint24 fee) = _getV3PoolInfo(pool);
-        console.log("token0: ", token0);
-        console.log("token1: ", token1);
-        (address inputToken,) = (token0, token1);
-        int256 amountIn = 1e21; // 1000 dai
-
-        // fund sando contract
-        vm.startPrank(0x5d3a536E4D6DbD6114cc1Ead35777bAB948E3643);
-        ERC20(inputToken).transfer(sando, uint256(amountIn));
-
-        bytes memory payload = V3SandoUtility.v3CreateBackrunPayload(pool, inputToken, fee, amountIn);
+        bytes memory payload = V3SandoUtility.v3CreateBackrunPayload(pool, inputToken, fee, int256(inputDaiAmount));
 
         changePrank(searcher, searcher);
         (bool s,) = address(sando).call(payload);
@@ -216,7 +188,7 @@ contract SandoTest is Test {
 
         uint256 actualWethInput = SandoCommon.wethAfterEncoding(inputWethAmount);
         uint256 actualUsdtOutput = GeneralHelper.getAmountOut(address(weth), usdtAddress, actualWethInput);
-        uint256 expectedUsdtOutput = V2SandoUtility.encodeAndDecodeFiveByteSchema(actualUsdtOutput);
+        uint256 expectedUsdtOutput = SandoCommon.encodeAndDecodeFiveByteSchema(actualUsdtOutput);
 
         // need this to pass because: https://github.com/Uniswap/v2-core/blob/master/contracts/UniswapV2Pair.sol#L160
         vm.assume(expectedUsdtOutput > 0);
@@ -248,7 +220,7 @@ contract SandoTest is Test {
 
         uint256 actualWethInput = SandoCommon.wethAfterEncoding(inputWethAmount);
         uint256 actualUsdcOutput = GeneralHelper.getAmountOut(address(weth), usdcAddress, actualWethInput);
-        uint256 expectedUsdcOutput = V2SandoUtility.encodeAndDecodeFiveByteSchema(actualUsdcOutput);
+        uint256 expectedUsdcOutput = SandoCommon.encodeAndDecodeFiveByteSchema(actualUsdcOutput);
 
         // need this to pass because: https://github.com/Uniswap/v2-core/blob/master/contracts/UniswapV2Pair.sol#L160
         vm.assume(expectedUsdcOutput > 0);
@@ -283,7 +255,7 @@ contract SandoTest is Test {
         uint256 preSwapWethBalance = weth.balanceOf(sando);
         uint256 preSwapSuperBalance = ERC20(superAddress).balanceOf(sando);
 
-        uint256 actualFarmInput = V2SandoUtility.encodeAndDecodeFiveByteSchema(preSwapSuperBalance);
+        uint256 actualFarmInput = SandoCommon.encodeAndDecodeFiveByteSchema(preSwapSuperBalance);
         uint256 actualWethOutput = GeneralHelper.getAmountOut(superAddress, address(weth), actualFarmInput);
         uint256 expectedWethOutput = SandoCommon.wethAfterEncoding(actualWethOutput);
 
@@ -325,7 +297,7 @@ contract SandoTest is Test {
         uint256 preSwapWethBalance = weth.balanceOf(sando);
         uint256 preSwapDaiBalance = ERC20(daiAddress).balanceOf(sando);
 
-        uint256 actualDaiInput = V2SandoUtility.encodeAndDecodeFiveByteSchema(preSwapDaiBalance);
+        uint256 actualDaiInput = SandoCommon.encodeAndDecodeFiveByteSchema(preSwapDaiBalance);
         uint256 actualWethOutput = GeneralHelper.getAmountOut(daiAddress, address(weth), actualDaiInput);
         uint256 expectedWethOutput = SandoCommon.wethAfterEncoding(actualWethOutput);
 

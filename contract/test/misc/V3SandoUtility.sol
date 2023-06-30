@@ -22,7 +22,7 @@ library V3SandoUtility {
         (address token0, address token1) = weth < outputToken ? (weth, outputToken) : (outputToken, weth);
         bytes32 pairInitHash = keccak256(abi.encode(token0, token1, fee));
 
-        payload = abi.encodePacked(_v3FindFunctionSig(true, outputToken, amountIn), address(pool), pairInitHash);
+        payload = abi.encodePacked(_v3FindJumpDest(true, outputToken), address(pool), pairInitHash);
         encodedValue = uint256(amountIn) / SandoCommon.wethEncodeMultiple();
     }
 
@@ -39,30 +39,21 @@ library V3SandoUtility {
         (address token0, address token1) = inputToken < weth ? (inputToken, weth) : (weth, inputToken);
         bytes32 pairInitHash = keccak256(abi.encode(token0, token1, fee));
 
-        if (amountIn <= int256(uint256(0xFFFFFFFFFFFF))) {
-            // use small method
-            payload = abi.encodePacked(
-                _v3FindFunctionSig(false, inputToken, amountIn),
-                address(pool),
-                address(inputToken),
-                int48(amountIn),
-                pairInitHash
-            );
-        } else {
-            int256 encodedValue = amountIn / 1e13;
-            // use big method
-            payload = abi.encodePacked(
-                _v3FindFunctionSig(false, inputToken, amountIn),
-                address(pool),
-                address(inputToken),
-                int72(encodedValue),
-                pairInitHash
-            );
-        }
+        // Get amounts out and encode it
+        (uint32 fourByteEncoded, uint8 memoryOffset) = SandoCommon.encodeFiveByteSchema(uint256(amountIn), 2);
+
+        payload = abi.encodePacked(
+            _v3FindJumpDest(false, inputToken),
+            address(pool),
+            address(inputToken),
+            pairInitHash,
+            memoryOffset,
+            fourByteEncoded
+        );
     }
 
     // HELPERS
-    function _v3FindFunctionSig(bool isFrontrunTx, address outputToken, int256 amountIn)
+    function _v3FindJumpDest(bool isFrontrunTx, address outputToken)
         internal
         pure
         returns (uint8)
@@ -73,13 +64,7 @@ library V3SandoUtility {
         if (isFrontrunTx) {
             functionSignature = weth < outputToken ? "v3_frontrun0" : "v3_frontrun1";
         } else {
-            if (weth > outputToken) {
-                functionSignature =
-                    amountIn <= int256(uint256(0xFFFFFFFFFFFF)) ? "v3_backrun1_small" : "v3_backrun1_big";
-            } else {
-                functionSignature =
-                    amountIn <= int256(uint256(0xFFFFFFFFFFFF)) ? "v3_backrun0_small" : "v3_backrun0_big";
-            }
+            functionSignature = weth < outputToken ? "v3_backrun0" : "v3_backrun1";
         }
 
         return SandoCommon.getJumpDestFromSig(functionSignature);
