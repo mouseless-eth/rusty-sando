@@ -1,0 +1,30 @@
+[package]
+name = "strategy"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# Misc
+hashbrown = "0.14.0"
+tokio = { version = "1.29.0", features = ["full"] }
+dashmap = "5.4.0"
+thiserror = "1.0.37"
+futures = "0.3.5"
+async-trait = "0.1.64"
+anyhow = "1.0.70"
+serde = "1.0.145"
+
+# EVM based crates
+#cfmms = "0.6.2"
+cfmms = { git = "https://github.com/mouseless-eth/cfmms-rs.git", branch = "fix-serialize-dex-fee"}
+ethers-flashbots = { git = "https://github.com/onbjerg/ethers-flashbots"}
+ethers = {version = "2.0.7", features = ["abigen", "ws"]}
+revm = "3.3.0"
+
+# Logging
+colored = "2.0.0"
+log = "0.4.17"
+indicatif = "0.17.5"
+
+# Artemis
+artemis-core = { path = "../artemis-core" }

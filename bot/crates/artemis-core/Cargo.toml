@@ -1,0 +1,24 @@
+[package]
+name = "artemis-core"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+
+## eth
+ethers = { version = "2", features = ["ws", "rustls"]}
+ethers-flashbots = { git = "https://github.com/onbjerg/ethers-flashbots", features = ["rustls"] }
+
+## async
+async-trait = "0.1.64"
+futures = "0.3"
+reqwest = { version = "0.11.14", default-features = false, features = ["rustls-tls"] }
+tokio = { version = "1.18", features = ["full"] }
+tokio-stream = { version = "0.1", features = ['sync'] }
+
+## misc
+anyhow = "1.0.70"
+thiserror = "1.0.40"
+tracing = "0.1.37"

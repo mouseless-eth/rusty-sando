@@ -1,0 +1,44 @@
+[package]
+name = "rusty-sando"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Optimized sandwich bot written using Rust and Huff"
+readme = "README.md"
+homepage = "https://github.com/mouseless-eth/rusty-sando"
+repository = "https://github.com/mouseless-eth/rusty-sando"
+keywords = ["Ethereum", "Mev", "Dex", "Sandwich"]
+authors = ["0xmouseless <https://github.com/mouseless-eth>"]
+
+[dependencies]
+dotenv = "0.15.0"
+hashbrown = "0.14.0"
+tokio = { version = "1.29.0", features = ["full"] }
+log = "0.4.17"
+url = "2.3.1"
+dashmap = "5.4.0"
+hex = "0.4.3"
+serde = "1.0.145"
+anyhow = "1.0.71"
+reqwest = "0.11.12"
+thiserror = "1.0.37"
+futures = "0.3.5"
+
+# EVM based crates
+cfmms = "0.6.2"
+ethers-flashbots = { git = "https://github.com/onbjerg/ethers-flashbots" }
+ethers = {version = "2.0.7", features = ["abigen", "ws"]}
+revm = "3.3.0"
+
+# logging
+indoc = "2"
+fern = {version = "0.6.2", features = ["colored"]}
+chrono = "0.4.23"
+colored = "2.0.0"
+
+# artemis related
+artemis-core = { path = "../crates/artemis-core"}
+strategy = { path = "../crates/strategy" }
+
+[profile.release]
+debug = true
