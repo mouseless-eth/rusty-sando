@@ -22,7 +22,7 @@ Performing EVM simulations in this way allows the bot to detect sandwichable opp
 
 2. [Install Rust](https://www.rust-lang.org/tools/install) if you haven't already. 
 
-3. Fill in searcher address in Huff contract and deploy either straight onchain or via create2 using a [metamorphic](https://github.com/0age/metamorphic) like factory.
+3. Fill in searcher and helper address in Huff contract and deploy either straight onchain or via create2 using a [metamorphic](https://github.com/0age/metamorphic) like factory.
 > If you are using create2, you can easily mine for an address containing 7 zero bytes, saving 84 gas of calldata everytime the contract address is used as an argument. [read more](https://medium.com/coinmonks/deploy-an-efficient-address-contract-a-walkthrough-cb4be4ffbc70).
 
 4. Copy `.env.example` into `.env` and fill out values.
