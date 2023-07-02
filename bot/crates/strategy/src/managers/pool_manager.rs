@@ -1,20 +1,21 @@
 use anyhow::{anyhow, Result};
-use std::{path::Path, str::FromStr, sync::Arc};
-
 use cfmms::{
     checkpoint::sync_pools_from_checkpoint,
     dex::{Dex, DexVariant},
     pool::Pool,
     sync::sync_pairs,
 };
+use colored::Colorize;
 use dashmap::DashMap;
 use ethers::{
     abi,
     providers::Middleware,
-    types::{Address, Diff, H160, H256, U256},
+    types::{Address, BlockNumber, Diff, TraceType, Transaction, H160, H256, U256},
 };
+use log::info;
+use std::{path::Path, str::FromStr, sync::Arc};
 
-use crate::{constants::WETH_ADDRESS, types::VictimInfo};
+use crate::{constants::WETH_ADDRESS, startup_info_log};
 
 pub(crate) struct PoolManager<M> {
     /// Provider
@@ -27,7 +28,7 @@ pub(crate) struct PoolManager<M> {
 
 impl<M: Middleware + 'static> PoolManager<M> {
     /// Gets state of all pools
-    pub async fn sync_all_pools(&mut self) -> Result<()> {
+    pub async fn setup(&mut self) -> Result<()> {
         let checkpoint_path = ".cfmms-checkpoint.json";
 
         let checkpoint_exists = Path::new(checkpoint_path).exists();
@@ -49,6 +50,8 @@ impl<M: Middleware + 'static> PoolManager<M> {
             self.pools.insert(pool.address(), pool);
         }
 
+        startup_info_log!("pools synced: {}", self.pools.len());
+
         Ok(())
     }
 
@@ -56,16 +59,20 @@ impl<M: Middleware + 'static> PoolManager<M> {
     // enhancement: record stable coin pairs to sandwich as well here
     pub async fn get_touched_sandwichable_pools(
         &self,
-        victim_info: &VictimInfo,
+        victim_tx: &Transaction,
+        latest_block: BlockNumber,
+        provider: Arc<M>,
     ) -> Result<Vec<Pool>> {
-        let victim_state_diffs = if let Some(sd) = victim_info.get_state_diffs() {
-            sd
-        } else {
-            return Err(anyhow!("state diffs missing/non-existant"));
-        };
+        // get victim tx state diffs
+        let state_diffs = provider
+            .trace_call(victim_tx, vec![TraceType::StateDiff], Some(latest_block))
+            .await?
+            .state_diff
+            .ok_or(anyhow!("not sandwichable, no state diffs produced"))?
+            .0;
 
         // capture all addresses that have a state change and are also a `WETH` pool
-        let touched_pools: Vec<Pool> = victim_state_diffs
+        let touched_pools: Vec<Pool> = state_diffs
             .keys()
             .filter_map(|e| self.pools.get(e).map(|p| (*p.value()).clone()))
             .filter(|e| match e {
@@ -80,7 +87,7 @@ impl<M: Middleware + 'static> PoolManager<M> {
         }
 
         // find trade direction
-        let weth_state_diff = &victim_state_diffs
+        let weth_state_diff = &state_diffs
             .get(&WETH_ADDRESS)
             .ok_or(anyhow!("Missing WETH state diffs"))?
             .storage;

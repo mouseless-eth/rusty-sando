@@ -1,10 +1,14 @@
 use anyhow::{anyhow, Result};
 use artemis_core::collectors::block_collector::NewBlock;
+use colored::Colorize;
 use ethers::{
     providers::Middleware,
     types::{Block, BlockNumber, H256, U256, U64},
 };
+use log::info;
 use std::sync::Arc;
+
+use crate::startup_info_log;
 
 pub struct BlockManager {
     latest_block: BlockInfo,
@@ -29,12 +33,18 @@ impl BlockManager {
         let latest_block: BlockInfo = latest_block.try_into()?;
         self.update_block_info(latest_block);
 
+        startup_info_log!("latest block synced: {}", latest_block.number);
         Ok(())
     }
 
     /// Return info for the next block
     pub fn get_next_block(&self) -> BlockInfo {
         self.next_block
+    }
+
+    /// Return info for the next block
+    pub fn get_latest_block(&self) -> BlockInfo {
+        self.latest_block
     }
 
     /// Updates internal state with the latest mined block and next block

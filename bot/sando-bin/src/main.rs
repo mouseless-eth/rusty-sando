@@ -51,6 +51,7 @@ async fn main() -> Result<()> {
     let configs = StratConfig {
         sando_address: config.sando_address,
         sando_inception_block: config.sando_inception_block,
+        searcher_signer: config.searcher_signer,
     };
     let strategy = SandoBot::new(provider.clone(), configs);
     engine.add_strategy(Box::new(strategy));

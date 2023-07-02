@@ -1,6 +1,7 @@
 mod abi;
 mod constants;
 mod logging_macros;
+mod simulator;
 
 /// Module contains logic to manage info on onchain pools
 mod managers;

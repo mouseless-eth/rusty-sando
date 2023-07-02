@@ -6,6 +6,27 @@ macro_rules! log_info_cyan {
 }
 
 #[macro_export]
+macro_rules! log_not_sandwichable {
+    ($($arg:tt)*) => {
+        info!("{}", format_args!($($arg)*).to_string().yellow())
+    };
+}
+
+#[macro_export]
+macro_rules! log_sandwichable {
+    ($($arg:tt)*) => {
+        info!("{}", format_args!($($arg)*).to_string().green())
+    };
+}
+
+#[macro_export]
+macro_rules! startup_info_log {
+    ($($arg:tt)*) => {
+        info!("{}", format_args!($($arg)*).to_string().on_black().yellow().bold());
+    };
+}
+
+#[macro_export]
 macro_rules! log_error {
     ($($arg:tt)*) => {
         error!("{}", format_args!($($arg)*).to_string().red());

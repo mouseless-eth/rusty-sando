@@ -19,7 +19,8 @@ serde = "1.0.145"
 cfmms = { git = "https://github.com/mouseless-eth/cfmms-rs.git", branch = "fix-serialize-dex-fee"}
 ethers-flashbots = { git = "https://github.com/onbjerg/ethers-flashbots"}
 ethers = {version = "2.0.7", features = ["abigen", "ws"]}
-revm = "3.3.0"
+foundry-evm = { git = "https://github.com/mouseless-eth/foundry.git", branch = "ethers-version-change" }
+anvil = { git = "https://github.com/mouseless-eth/foundry.git", branch = "ethers-version-change" }
 
 # Logging
 colored = "2.0.0"
@@ -28,3 +29,6 @@ indicatif = "0.17.5"
 
 # Artemis
 artemis-core = { path = "../artemis-core" }
+
+[features]
+debug = []

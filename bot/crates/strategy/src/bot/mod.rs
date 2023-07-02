@@ -2,41 +2,43 @@ use anyhow::Result;
 use artemis_core::{collectors::block_collector::NewBlock, types::Strategy};
 use async_trait::async_trait;
 use colored::Colorize;
-use ethers::{
-    providers::Middleware,
-    types::{Address, Transaction, U256, U64},
-};
+use ethers::{providers::Middleware, types::Transaction};
 use log::{error, info};
 use std::sync::Arc;
 
 use crate::{
-    log_error, log_info_cyan, log_new_block_info,
-    managers::{block_manager::BlockManager, pool_manager::PoolManager},
-    types::{Action, Event, StratConfig, VictimInfo},
+    log_error, log_info_cyan, log_new_block_info, log_not_sandwichable, log_sandwichable,
+    managers::{
+        block_manager::BlockManager, pool_manager::PoolManager,
+        sando_state_manager::SandoStateManager,
+    },
+    simulator::sandwich_finder::create_optimal_sandwich,
+    types::{Action, Event, StratConfig},
 };
 
 pub struct SandoBot<M> {
-    /// Sando inception block
-    sando_inception_block: U64,
-    /// Sando contract
-    sando_contract: Address,
     /// Ethers client
     provider: Arc<M>,
     /// Keeps track of onchain pools
     pool_manager: PoolManager<M>,
     /// Block manager
     block_manager: BlockManager,
+    /// Keeps track of weth inventory & token dust
+    sando_state_manager: SandoStateManager,
 }
 
 impl<M: Middleware + 'static> SandoBot<M> {
     /// Create a new instance
     pub fn new(client: Arc<M>, config: StratConfig) -> Self {
         Self {
-            sando_contract: config.sando_address,
-            sando_inception_block: config.sando_inception_block,
             pool_manager: PoolManager::new(client.clone()),
             provider: client,
             block_manager: BlockManager::new(),
+            sando_state_manager: SandoStateManager::new(
+                config.sando_address,
+                config.searcher_signer,
+                config.sando_inception_block,
+            ),
         }
     }
 }
@@ -45,7 +47,10 @@ impl<M: Middleware + 'static> SandoBot<M> {
 impl<M: Middleware + 'static> Strategy<Event, Action> for SandoBot<M> {
     /// Setup by getting all pools to monitor for swaps
     async fn sync_state(&mut self) -> Result<()> {
-        self.pool_manager.sync_all_pools().await?;
+        self.pool_manager.setup().await?;
+        self.sando_state_manager
+            .setup(self.provider.clone())
+            .await?;
         self.block_manager.setup(self.provider.clone()).await?;
         Ok(())
     }
@@ -76,29 +81,19 @@ impl<M: Middleware + 'static> SandoBot<M> {
     async fn process_new_tx(&mut self, tx: Transaction) -> Option<Action> {
         // setup variables for processing tx
         let next_block = self.block_manager.get_next_block();
-        let mut victim_info = VictimInfo::new(tx, next_block);
+        let latest_block = self.block_manager.get_latest_block();
 
         // ignore txs that we can't include in next block
         // enhancement: simulate all txs regardless, store result, and use result when tx can included
-        if !victim_info.can_include_in_target_block() {
-            log_info_cyan!("{:?} mf<nbf", victim_info.tx_args.hash);
+        if tx.max_fee_per_gas.unwrap_or_default() < next_block.base_fee_per_gas {
+            log_info_cyan!("{:?} mf<nbf", tx.hash);
             return None;
         }
-
-        // get victim tx state diffs
-        victim_info
-            .fill_state_diffs(self.provider.clone())
-            .await
-            .map_err(|e| {
-                log_error!("Failed to get state diffs: {}", e);
-                e
-            })
-            .ok()?;
 
         // check if tx is a swap
         let touched_pools = self
             .pool_manager
-            .get_touched_sandwichable_pools(&victim_info)
+            .get_touched_sandwichable_pools(&tx, latest_block.number.into(), self.provider.clone())
             .await
             .map_err(|e| {
                 log_error!("Failed to get touched sandwichable pools: {}", e);
@@ -108,19 +103,33 @@ impl<M: Middleware + 'static> SandoBot<M> {
 
         // no touched pools = no sandwich opps
         if touched_pools.is_empty() {
-            info!("{:?}", victim_info.tx_args.hash);
+            info!("{:?}", tx.hash);
             return None;
         }
 
+        let weth_inventory = self.sando_state_manager.get_weth_inventory();
+
+        // list of sandwiches that this victim tx produces
+        let mut recipes = vec![];
+
         for pool in touched_pools {
-            match pool {
-                cfmms::pool::Pool::UniswapV2(v2Pool) => {
-                    println!("v2Pool");
+            let optimal_sandwich = match create_optimal_sandwich(
+                vec![tx.clone()],
+                pool,
+                next_block.clone(),
+                weth_inventory,
+                self.sando_state_manager.get_searcher(),
+                self.sando_state_manager.get_sando_address(),
+                self.provider.clone(),
+            )
+            .await
+            {
+                Ok(s) => {
+                    log_sandwichable!("{:?} {:?}", tx.hash, s);
+                    recipes.push(s)
                 }
-                cfmms::pool::Pool::UniswapV3(v3Pool) => {
-                    println!("v3Pool");
-                }
-            }
+                Err(e) => log_not_sandwichable!("{:?} {:?}", tx.hash, e),
+            };
         }
 
         None
