@@ -8,7 +8,6 @@ import "./SandoCommon.sol";
 /// @author 0xmouseless
 /// @notice Functions for interacting with sando contract's v2 methods
 library V2SandoUtility {
-
     /**
      * @notice Utility function to create payload for our v2 backruns
      * @return payload Calldata bytes to execute backruns
@@ -28,8 +27,11 @@ library V2SandoUtility {
         (uint32 fourByteEncoded, uint8 memoryOffset) = SandoCommon.encodeFiveByteSchema(amountIn, 1);
         uint256 amountInActual = SandoCommon.encodeAndDecodeFiveByteSchema(amountIn);
 
+        string memory functionSignature = weth < otherToken ? "v2_backrun0" : "v2_backrun1";
+        uint8 jumpDest = SandoCommon.getJumpDestFromSig(functionSignature);
+
         payload = abi.encodePacked(
-            _v2FindFunctionSig(false, otherToken), // token we're giving
+            jumpDest,
             address(pair), // univ2 pair
             address(otherToken), // inputToken
             memoryOffset, // memoryOffset to store amountIn
@@ -63,27 +65,16 @@ library V2SandoUtility {
             GeneralHelper.getAmountOut(weth, outputToken, amountInActual), weth < outputToken ? 1 : 0
         );
 
+        string memory functionSignature = weth < outputToken ? "v2_frontrun0" : "v2_frontrun1";
+        uint8 jumpDest = SandoCommon.getJumpDestFromSig(functionSignature);
+
         payload = abi.encodePacked(
-            _v2FindFunctionSig(true, outputToken), // type of swap to make
+            jumpDest, // type of swap to make
             address(pair), // univ2 pair
             uint8(memoryOffset), // memoryOffset to store amountOut
             uint32(fourByteEncoded) // amountOut
         );
 
         encodedValue = amountIn / SandoCommon.wethEncodeMultiple();
-    }
-
-    // HELPERS
-    function _v2FindFunctionSig(bool isFrontrunTx, address otherToken) internal pure returns (uint8 encodeAmount) {
-        address weth = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
-        string memory functionSignature;
-
-        if (isFrontrunTx) {
-            functionSignature = weth < otherToken ? "v2_frontrun0" : "v2_frontrun1";
-        } else {
-            functionSignature = weth < otherToken ? "v2_backrun0" : "v2_backrun1";
-        }
-
-        return SandoCommon.getJumpDestFromSig(functionSignature);
     }
 }

@@ -19,17 +19,21 @@ library V3SandoUtility {
         returns (bytes memory payload, uint256 encodedValue)
     {
         address weth = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
+
         (address token0, address token1) = weth < outputToken ? (weth, outputToken) : (outputToken, weth);
         bytes32 pairInitHash = keccak256(abi.encode(token0, token1, fee));
 
-        payload = abi.encodePacked(_v3FindJumpDest(true, outputToken), address(pool), pairInitHash);
+        string memory functionSignature = weth < outputToken ? "v3_frontrun0" : "v3_frontrun1";
+        uint8 jumpDest = SandoCommon.getJumpDestFromSig(functionSignature);
+        payload = abi.encodePacked(jumpDest, address(pool), pairInitHash);
+
         encodedValue = uint256(amountIn) / SandoCommon.wethEncodeMultiple();
     }
-
     /**
      * @notice Utility function to create payload for our v3 backruns
      * @return payload Calldata bytes to execute backruns (empty tx.value because pool optimistically sends weth to sando contract)
      */
+
     function v3CreateBackrunPayload(address pool, address inputToken, uint24 fee, int256 amountIn)
         public
         pure
@@ -39,34 +43,12 @@ library V3SandoUtility {
         (address token0, address token1) = inputToken < weth ? (inputToken, weth) : (weth, inputToken);
         bytes32 pairInitHash = keccak256(abi.encode(token0, token1, fee));
 
-        // Get amounts out and encode it
+        string memory functionSignature = weth < inputToken ? "v3_backrun0" : "v3_backrun1";
+        uint8 jumpDest = SandoCommon.getJumpDestFromSig(functionSignature);
+
         (uint32 fourByteEncoded, uint8 memoryOffset) = SandoCommon.encodeFiveByteSchema(uint256(amountIn), 2);
 
-        payload = abi.encodePacked(
-            _v3FindJumpDest(false, inputToken),
-            address(pool),
-            address(inputToken),
-            pairInitHash,
-            memoryOffset,
-            fourByteEncoded
-        );
-    }
-
-    // HELPERS
-    function _v3FindJumpDest(bool isFrontrunTx, address outputToken)
-        internal
-        pure
-        returns (uint8)
-    {
-        address weth = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
-        string memory functionSignature;
-
-        if (isFrontrunTx) {
-            functionSignature = weth < outputToken ? "v3_frontrun0" : "v3_frontrun1";
-        } else {
-            functionSignature = weth < outputToken ? "v3_backrun0" : "v3_backrun1";
-        }
-
-        return SandoCommon.getJumpDestFromSig(functionSignature);
+        payload =
+            abi.encodePacked(jumpDest, address(pool), address(inputToken), pairInitHash, memoryOffset, fourByteEncoded);
     }
 }
