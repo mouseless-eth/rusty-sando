@@ -10,21 +10,21 @@ import "v3-periphery/interfaces/IQuoter.sol";
 import "v3-core/interfaces/IUniswapV3Pool.sol";
 import "solmate/tokens/WETH.sol";
 
-import "../src/BrainDance.sol";
+import "../src/LilRouter.sol";
 
-/// @title BrainDanceTest
+/// @title LilRouterTest
 /// @author 0xmouseless
-/// @notice Test suite for the BrainDance contract
-contract BrainDanceTest is Test {
+/// @notice Test suite for the LilRouter contract
+contract LilRouterTest is Test {
     address constant weth = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
     IUniswapV2Factory uniV2Factory;
     IUniswapV2Router02 uniV2Router;
     IQuoter uniV3Quoter;
-    BrainDance brainDance;
+    LilRouter lilRouter;
 
     /// @notice Set up the testing suite
     function setUp() public {
-        brainDance = new BrainDance();
+        lilRouter = new LilRouter();
 
         uniV2Factory = IUniswapV2Factory(0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f);
         uniV2Router = IUniswapV2Router02(0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D);
@@ -32,7 +32,7 @@ contract BrainDanceTest is Test {
         WETH wrappedEther = WETH(payable(weth));
 
         wrappedEther.deposit{value: 10e18}();
-        wrappedEther.transfer(address(brainDance), 10e18);
+        wrappedEther.transfer(address(lilRouter), 10e18);
     }
 
     /// @notice Test swapping weth to usdc and back
@@ -43,7 +43,7 @@ contract BrainDanceTest is Test {
         // swapping 2 weth to usdc
         int256 amountIn = 2 ether;
         uint256 amountOutExpected = _quoteV3Swap(amountIn, usdcWethPool, weth, usdc);
-        (uint256 amountOut,) = brainDance.calculateSwapV3(amountIn, usdcWethPool, weth, usdc);
+        (uint256 amountOut,) = lilRouter.calculateSwapV3(amountIn, usdcWethPool, weth, usdc);
         console2.log("swapped %d WETH for %d USDC", uint256(amountIn), amountOut);
         assertEq(
             amountOutExpected, amountOut, "WETH->USDC swap failed: received USDC deviates from expected router output."
@@ -52,7 +52,7 @@ contract BrainDanceTest is Test {
         // swapping received usdc back to weth
         amountIn = int256(amountOut);
         amountOutExpected = _quoteV3Swap(amountIn, usdcWethPool, usdc, weth);
-        (amountOut,) = brainDance.calculateSwapV3(amountIn, usdcWethPool, usdc, weth);
+        (amountOut,) = lilRouter.calculateSwapV3(amountIn, usdcWethPool, usdc, weth);
         console2.log("swapped %d USDC for %d WETH", uint256(amountIn), amountOut);
         assertEq(
             amountOutExpected, amountOut, "USDC->WETH swap failed: received WETH deviates from expected router output."
@@ -67,7 +67,7 @@ contract BrainDanceTest is Test {
         // swapping 2 weth to usdc
         uint256 amountIn = 2 ether;
         uint256 amountOutExpected = _quoteV2Swap(amountIn, usdcWethPair, weth < usdc);
-        (uint256 amountOut,) = brainDance.calculateSwapV2(amountIn, usdcWethPair, weth, usdc);
+        (uint256 amountOut,) = lilRouter.calculateSwapV2(amountIn, usdcWethPair, weth, usdc);
         console2.log("swapped %d WETH for %d USDC", amountIn, amountOut);
         assertEq(
             amountOutExpected, amountOut, "WETH->USDC swap failed: received USDC deviates from expected router output."
@@ -76,16 +76,16 @@ contract BrainDanceTest is Test {
         // swapping received usdc back to weth
         amountIn = amountOut;
         amountOutExpected = _quoteV2Swap(amountIn, usdcWethPair, usdc < weth);
-        (amountOut,) = brainDance.calculateSwapV2(amountIn, usdcWethPair, usdc, weth);
+        (amountOut,) = lilRouter.calculateSwapV2(amountIn, usdcWethPair, usdc, weth);
         console2.log("swapped %d USDC for %d WETH", amountIn, amountOut);
         assertEq(
             amountOutExpected, amountOut, "USDC->WETH swap failed: received WETH deviates from expected router output."
         );
     }
 
-    /// @notice Get the deployed BrainDance bytecode (we inject this into evm instances for simulations)
-    function testGetBrainDanceCode() public {
-        bytes memory code = address(brainDance).code;
+    /// @notice Get the deployed LilRouter bytecode (we inject this into evm instances for simulations)
+    function testGetLilRouterCode() public {
+        bytes memory code = address(lilRouter).code;
         emit log_bytes(code);
     }
 

@@ -6,10 +6,10 @@ import "v2-periphery/interfaces/IUniswapV2Router02.sol";
 import "v3-core/interfaces/IUniswapV3Pool.sol";
 import "solmate/tokens/ERC20.sol";
 
-/// @title BrainDance
+/// @title LilRouter
 /// @author 0xmouseless
 /// @notice Minimal swap router used to sim V2/V3 swaps (and account for taxed tokens)
-contract BrainDance {
+contract LilRouter {
     /**
      * @notice Performs a token swap on a v2 pool
      * @return amountOut Expected output tokens from the swap
