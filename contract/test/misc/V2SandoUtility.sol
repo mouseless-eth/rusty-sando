@@ -24,8 +24,8 @@ library V2SandoUtility {
         address pair = address(IUniswapV2Pair(univ2Factory.getPair(weth, address(otherToken))));
 
         // encode amountIn
-        (uint32 fourByteEncoded, uint8 memoryOffset) = SandoCommon.encodeFiveByteSchema(amountIn, 1);
-        uint256 amountInActual = SandoCommon.encodeAndDecodeFiveByteSchema(amountIn);
+        FiveBytesEncodingUtils.EncodingMetaData memory fiveByteParams = FiveBytesEncodingUtils.encode(amountIn);
+        uint256 amountInActual = FiveBytesEncodingUtils.decode(fiveByteParams);
 
         string memory functionSignature = weth < otherToken ? "v2_backrun0" : "v2_backrun1";
         uint8 jumpDest = SandoCommon.getJumpDestFromSig(functionSignature);
@@ -34,12 +34,11 @@ library V2SandoUtility {
             jumpDest,
             address(pair), // univ2 pair
             address(otherToken), // inputToken
-            memoryOffset, // memoryOffset to store amountIn
-            fourByteEncoded // amountIn
+            FiveBytesEncodingUtils.finalzeForParamIndex(fiveByteParams, 1)
         );
 
         uint256 amountOut = GeneralHelper.getAmountOut(otherToken, weth, amountInActual);
-        encodedValue = amountOut / SandoCommon.wethEncodeMultiple();
+        encodedValue = WethEncodingUtils.encode(amountOut);
     }
 
     /**
@@ -58,11 +57,11 @@ library V2SandoUtility {
         address pair = address(IUniswapV2Pair(univ2Factory.getPair(weth, address(outputToken))));
 
         // Encode amountIn here (so we can use it for next step)
-        uint256 amountInActual = (amountIn / SandoCommon.wethEncodeMultiple()) * SandoCommon.wethEncodeMultiple();
+        uint256 amountInActual = WethEncodingUtils.decode(WethEncodingUtils.encode(amountIn));
 
         // Get amounts out and encode it
-        (uint256 fourByteEncoded, uint256 memoryOffset) = SandoCommon.encodeFiveByteSchema(
-            GeneralHelper.getAmountOut(weth, outputToken, amountInActual), weth < outputToken ? 1 : 0
+        FiveBytesEncodingUtils.EncodingMetaData memory fiveByteParams = FiveBytesEncodingUtils.encode(
+            GeneralHelper.getAmountOut(weth, outputToken, amountInActual)
         );
 
         string memory functionSignature = weth < outputToken ? "v2_frontrun0" : "v2_frontrun1";
@@ -71,10 +70,9 @@ library V2SandoUtility {
         payload = abi.encodePacked(
             jumpDest, // type of swap to make
             address(pair), // univ2 pair
-            uint8(memoryOffset), // memoryOffset to store amountOut
-            uint32(fourByteEncoded) // amountOut
+            FiveBytesEncodingUtils.finalzeForParamIndex(fiveByteParams, weth < outputToken ? 1 : 0)
         );
 
-        encodedValue = amountIn / SandoCommon.wethEncodeMultiple();
+        encodedValue = WethEncodingUtils.encode(amountIn);
     }
 }
