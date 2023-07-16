@@ -3,16 +3,17 @@ use artemis_core::{collectors::block_collector::NewBlock, types::Strategy};
 use async_trait::async_trait;
 use colored::Colorize;
 use ethers::{providers::Middleware, types::Transaction};
+use foundry_evm::executor::fork::{BlockchainDb, BlockchainDbMeta, SharedBackend};
 use log::{error, info};
-use std::sync::Arc;
+use std::{collections::BTreeSet, sync::Arc};
 
 use crate::{
     log_error, log_info_cyan, log_new_block_info, log_not_sandwichable, log_sandwichable,
     managers::{
-        block_manager::BlockManager, pool_manager::PoolManager,
+        block_manager::{BlockInfo, BlockManager},
+        pool_manager::PoolManager,
         sando_state_manager::SandoStateManager,
     },
-    simulator::sandwich_finder::create_optimal_sandwich,
     types::{Action, Event, StratConfig},
 };
 
@@ -40,6 +41,41 @@ impl<M: Middleware + 'static> SandoBot<M> {
                 config.sando_inception_block,
             ),
         }
+    }
+
+    /// Main logic for the strategy
+    /// Checks if the RawIngredients are sandwichable
+    #[allow(unused_mut)]
+    pub async fn is_sandwichable(&self, target_block: BlockInfo) -> Result<()> {
+        // setup shared backend
+        let shared_backend = SharedBackend::spawn_backend_thread(
+            self.provider.clone(),
+            BlockchainDb::new(
+                BlockchainDbMeta {
+                    cfg_env: Default::default(),
+                    block_env: Default::default(),
+                    hosts: BTreeSet::from(["".to_string()]),
+                },
+                None,
+            ), /* default because not accounting for this atm */
+            Some((target_block.number - 1).into()),
+        );
+
+        #[cfg(feature = "debug")]
+        {
+            weth_inventory = (*crate::constants::WETH_FUND_AMT).into(); // Set a new value only when the debug feature is active
+        }
+
+        let optimal = find_optimal_input(
+            meats,
+            target_pool,
+            target_block,
+            weth_inventory,
+            shared_backend,
+        )
+        .await?;
+
+        Ok(())
     }
 }
 
@@ -113,17 +149,7 @@ impl<M: Middleware + 'static> SandoBot<M> {
         let mut recipes = vec![];
 
         for pool in touched_pools {
-            let optimal_sandwich = match create_optimal_sandwich(
-                vec![tx.clone()],
-                pool,
-                next_block.clone(),
-                weth_inventory,
-                self.sando_state_manager.get_searcher(),
-                self.sando_state_manager.get_sando_address(),
-                self.provider.clone(),
-            )
-            .await
-            {
+            let optimal_sandwich = match self.is_sandwichable(next_block.clone()).await {
                 Ok(s) => {
                     log_sandwichable!("{:?} {:?}", tx.hash, s);
                     recipes.push(s)

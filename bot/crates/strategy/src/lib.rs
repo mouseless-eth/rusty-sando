@@ -6,6 +6,9 @@ mod simulator;
 /// Module contains logic to manage info on onchain pools
 mod managers;
 
+/// Module contains logic related to transaction building
+pub(crate) mod tx_utils;
+
 /// Module contains core strategy implementation
 pub mod bot;
 

@@ -15,16 +15,16 @@ use foundry_evm::{
 
 use crate::{
     constants::{
-        BRAINDANCE_ADDRESS, BRAINDANCE_CODE, BRAINDANCE_CONTROLLER, COINBASE, ONE_ETHER_IN_WEI,
-        WETH_ADDRESS, WETH_FUND_AMT,
+        BRAINDANCE_ADDRESS, BRAINDANCE_CODE, BRAINDANCE_CONTROLLER, ONE_ETHER_IN_WEI, WETH_ADDRESS,
+        WETH_FUND_AMT,
     },
     managers::block_manager::BlockInfo,
-    simulator::setup_block_state,
+    tx_utils::lil_router_interface::{
+        build_swap_v2_data, build_swap_v3_data, decode_swap_v2_result, decode_swap_v3_result,
+    },
 };
 
-use super::braindance_interface::{
-    build_swap_v2_data, build_swap_v3_data, decode_swap_v2_result, decode_swap_v3_result,
-};
+use super::setup_block_state;
 
 // Juiced implementation of https://research.ijcaonline.org/volume65/number14/pxc3886165.pdf
 // splits range in more intervals, search intervals concurrently, compare, repeat till termination
@@ -178,9 +178,11 @@ async fn evaluate_sandwich_revenue(
     target_pool: Pool,
 ) -> Result<U256> {
     let mut fork_db = CacheDB::new(shared_backend);
-    attach_braindance_module(&mut fork_db);
+    inject_lil_router_code(&mut fork_db);
+
     let mut evm = EVM::new();
     evm.database(fork_db);
+
     setup_block_state(&mut evm, &next_block);
 
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -200,7 +202,7 @@ async fn evaluate_sandwich_revenue(
 
     let result = match evm.transact_commit() {
         Ok(result) => result,
-        Err(e) => return Err(anyhow!("[EVM ERROR] Frontrun: {:?}", e)),
+        Err(e) => return Err(anyhow!("[lilRouter: EVM ERROR] Frontrun: {:?}", e)),
     };
     let output = match result {
         ExecutionResult::Success { output, .. } => match output {
@@ -208,20 +210,25 @@ async fn evaluate_sandwich_revenue(
             Output::Create(o, _) => o,
         },
         ExecutionResult::Revert { output, .. } => {
-            return Err(anyhow!("[REVERT] Frontrun: {:?}", output))
+            return Err(anyhow!("[lilRouter: REVERT] Frontrun: {:?}", output))
         }
         ExecutionResult::Halt { reason, .. } => {
-            return Err(anyhow!("[HALT] Frontrun: {:?}", reason))
+            return Err(anyhow!("[lilRouter: HALT] Frontrun: {:?}", reason))
         }
     };
     let (_frontrun_out, backrun_in) = match target_pool {
         UniswapV2(_) => match decode_swap_v2_result(output.into()) {
             Ok(output) => output,
-            Err(e) => return Err(anyhow!("[FailedToDecodeOutput] Frontrun: {:?}", e)),
+            Err(e) => {
+                return Err(anyhow!(
+                    "[lilRouter: FailedToDecodeOutput] Frontrun: {:?}",
+                    e
+                ))
+            }
         },
         UniswapV3(_) => match decode_swap_v3_result(output.into()) {
             Ok(output) => output,
-            Err(e) => return Err(anyhow!("FailedToDecodeOutput: {:?}", e)),
+            Err(e) => return Err(anyhow!("lilRouter: FailedToDecodeOutput: {:?}", e)),
         },
     };
 
@@ -273,7 +280,7 @@ async fn evaluate_sandwich_revenue(
 
     let result = match evm.transact_commit() {
         Ok(result) => result,
-        Err(e) => return Err(anyhow!("[EVM ERROR] Backrun: {:?}", e)),
+        Err(e) => return Err(anyhow!("[lilRouter: EVM ERROR] Backrun: {:?}", e)),
     };
     let output = match result {
         ExecutionResult::Success { output, .. } => match output {
@@ -281,20 +288,20 @@ async fn evaluate_sandwich_revenue(
             Output::Create(o, _) => o,
         },
         ExecutionResult::Revert { output, .. } => {
-            return Err(anyhow!("[REVERT] Backrun: {:?}", output))
+            return Err(anyhow!("[lilRouter: REVERT] Backrun: {:?}", output))
         }
         ExecutionResult::Halt { reason, .. } => {
-            return Err(anyhow!("[HALT] Backrun: {:?}", reason))
+            return Err(anyhow!("[lilRouter: HALT] Backrun: {:?}", reason))
         }
     };
     let (_backrun_out, post_sandwich_balance) = match target_pool {
         UniswapV2(_) => match decode_swap_v2_result(output.into()) {
             Ok(output) => output,
-            Err(e) => return Err(anyhow!("FailedToDecodeOutput: {:?}", e)),
+            Err(e) => return Err(anyhow!("[lilRouter: FailedToDecodeOutput] {:?}", e)),
         },
         UniswapV3(_) => match decode_swap_v3_result(output.into()) {
             Ok(output) => output,
-            Err(e) => return Err(anyhow!("FailedToDecodeOutput: {:?}", e)),
+            Err(e) => return Err(anyhow!("[lilRouter: FailedToDecodeOutput] {:?}", e)),
         },
     };
 
@@ -306,20 +313,20 @@ async fn evaluate_sandwich_revenue(
 }
 
 /// Inserts custom router contract into evm instance for simulations
-fn attach_braindance_module(db: &mut CacheDB<SharedBackend>) {
-    // insert braindance bytecode
-    let braindance_info = AccountInfo::new(
+fn inject_lil_router_code(db: &mut CacheDB<SharedBackend>) {
+    // insert lilRouter bytecode
+    let lil_router_info = AccountInfo::new(
         rU256::ZERO,
         0,
         Bytecode::new_raw((*BRAINDANCE_CODE.0).into()),
     );
-    db.insert_account_info(*BRAINDANCE_ADDRESS, braindance_info);
+    db.insert_account_info(*BRAINDANCE_ADDRESS, lil_router_info);
 
-    // insert and fund braindance controller (so we can spoof)
+    // insert and fund lilRouter controller (so we can spoof)
     let controller_info = AccountInfo::new(*WETH_FUND_AMT, 0, Bytecode::default());
     db.insert_account_info(*BRAINDANCE_CONTROLLER, controller_info);
 
-    // fund braindance with 200 weth
+    // fund lilRouter with 200 weth
     let slot = keccak256(&abi::encode(&[
         abi::Token::Address((*BRAINDANCE_ADDRESS).into()),
         abi::Token::Uint(U256::from(3)),

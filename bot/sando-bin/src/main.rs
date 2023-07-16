@@ -7,7 +7,10 @@ use artemis_core::{
     executors::flashbots_executor::FlashbotsExecutor,
     types::{CollectorMap, ExecutorMap},
 };
-use ethers::providers::{Provider, Ws};
+use ethers::{
+    providers::{Provider, Ws},
+    signers::Signer,
+};
 use log::info;
 use reqwest::Url;
 use rusty_sando::{
@@ -51,7 +54,7 @@ async fn main() -> Result<()> {
     let configs = StratConfig {
         sando_address: config.sando_address,
         sando_inception_block: config.sando_inception_block,
-        searcher_signer: config.searcher_signer,
+        searcher_signer: searcher_signer.address(),
     };
     let strategy = SandoBot::new(provider.clone(), configs);
     engine.add_strategy(Box::new(strategy));

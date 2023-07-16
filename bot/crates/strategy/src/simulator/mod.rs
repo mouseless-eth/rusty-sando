@@ -1,5 +1,5 @@
-mod huffsando;
-mod minimal_router;
+pub mod huff_sando;
+pub mod lil_router;
 pub(crate) mod sandwich_finder;
 
 use foundry_evm::{

@@ -21,6 +21,7 @@ ethers-flashbots = { git = "https://github.com/onbjerg/ethers-flashbots"}
 ethers = {version = "2.0.7", features = ["abigen", "ws"]}
 foundry-evm = { git = "https://github.com/mouseless-eth/foundry.git", branch = "ethers-version-change" }
 anvil = { git = "https://github.com/mouseless-eth/foundry.git", branch = "ethers-version-change" }
+eth-encode-packed = "0.1.0"
 
 # Logging
 colored = "2.0.0"
