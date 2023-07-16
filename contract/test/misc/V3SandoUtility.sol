@@ -49,7 +49,12 @@ library V3SandoUtility {
 
         FiveBytesEncodingUtils.EncodingMetaData memory fiveByteParams = FiveBytesEncodingUtils.encode(uint256(amountIn));
 
-        payload =
-            abi.encodePacked(jumpDest, address(pool), address(inputToken), poolKeyHash, FiveBytesEncodingUtils.finalzeForParamIndex(fiveByteParams, 2));
+        payload = abi.encodePacked(
+            jumpDest,
+            address(pool),
+            address(inputToken),
+            poolKeyHash,
+            FiveBytesEncodingUtils.finalzeForParamIndex(fiveByteParams, 2)
+        );
     }
 }

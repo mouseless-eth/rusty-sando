@@ -10,7 +10,7 @@ import "./GeneralHelper.sol";
 /// @dev Encoding schema: fits any uint256 (32 byte value) into 5 bytes. 4 bytes reserved for a value, 1 byte reserved for storage slot to store the 4 byte value in.
 library FiveBytesEncodingUtils {
     struct EncodingMetaData {
-        /// @notice AmountIn squashed down to four bytes
+        /// @notice TargetValue squashed down to four bytes
         uint32 fourBytes;
         /// @notice How many byte shifts to apply on our four bytes
         uint8 byteShift;
@@ -22,11 +22,7 @@ library FiveBytesEncodingUtils {
      * @param amount The amount to be encoded
      * @return encodingParams Parameters used for encoding the given input
      */
-    function encode(uint256 amount)
-        public
-        pure
-        returns (EncodingMetaData memory encodingParams)
-    {
+    function encode(uint256 amount) public pure returns (EncodingMetaData memory encodingParams) {
         uint8 byteShift = 0; // how many byte shifts are needed to store value into four bytes?
         uint32 fourByteValue = 0;
 
@@ -42,10 +38,7 @@ library FiveBytesEncodingUtils {
             byteShift++;
         }
 
-        encodingParams = EncodingMetaData({
-            fourBytes: fourByteValue,
-            byteShift: byteShift
-        });
+        encodingParams = EncodingMetaData({fourBytes: fourByteValue, byteShift: byteShift});
     }
 
     /**
@@ -65,7 +58,11 @@ library FiveBytesEncodingUtils {
      * @param paramIndex Which param index should we encode to
      * @return fiveBytes The final five bytes used in calldata
      */
-    function finalzeForParamIndex(EncodingMetaData calldata encodingParams, uint8 paramIndex) public pure returns (uint40 fiveBytes) {
+    function finalzeForParamIndex(EncodingMetaData calldata encodingParams, uint8 paramIndex)
+        public
+        pure
+        returns (uint40 fiveBytes)
+    {
         // 4 for function selector
         uint8 memLocation = 4 + 32 + (paramIndex * 32) - 4 - encodingParams.byteShift;
 

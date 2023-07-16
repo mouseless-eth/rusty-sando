@@ -60,9 +60,8 @@ library V2SandoUtility {
         uint256 amountInActual = WethEncodingUtils.decode(WethEncodingUtils.encode(amountIn));
 
         // Get amounts out and encode it
-        FiveBytesEncodingUtils.EncodingMetaData memory fiveByteParams = FiveBytesEncodingUtils.encode(
-            GeneralHelper.getAmountOut(weth, outputToken, amountInActual)
-        );
+        FiveBytesEncodingUtils.EncodingMetaData memory fiveByteParams =
+            FiveBytesEncodingUtils.encode(GeneralHelper.getAmountOut(weth, outputToken, amountInActual));
 
         string memory functionSignature = weth < outputToken ? "v2_frontrun0" : "v2_frontrun1";
         uint8 jumpDest = SandoCommon.getJumpDestFromSig(functionSignature);
