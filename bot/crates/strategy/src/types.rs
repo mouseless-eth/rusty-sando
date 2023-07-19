@@ -26,6 +26,7 @@ pub struct StratConfig {
 }
 
 /// Information on potential sandwichable opportunity
+#[derive(Clone)]
 pub struct RawIngredients {
     /// Victim tx/s to be used in sandwich
     meats: Vec<Transaction>,
@@ -50,5 +51,13 @@ impl RawIngredients {
             intermediary_token,
             target_pool,
         }
+    }
+
+    pub fn get_meats(&self) -> Vec<Transaction> {
+        self.meats
+    }
+
+    pub fn get_target_pool(&self) -> Pool {
+        self.target_pool
     }
 }

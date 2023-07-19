@@ -1,6 +1,7 @@
 use anyhow::Result;
 use artemis_core::{collectors::block_collector::NewBlock, types::Strategy};
 use async_trait::async_trait;
+use cfmms::pool::Pool::{UniswapV2, UniswapV3};
 use colored::Colorize;
 use ethers::{providers::Middleware, types::Transaction};
 use foundry_evm::executor::fork::{BlockchainDb, BlockchainDbMeta, SharedBackend};
@@ -8,13 +9,15 @@ use log::{error, info};
 use std::{collections::BTreeSet, sync::Arc};
 
 use crate::{
+    constants::WETH_ADDRESS,
     log_error, log_info_cyan, log_new_block_info, log_not_sandwichable, log_sandwichable,
     managers::{
         block_manager::{BlockInfo, BlockManager},
         pool_manager::PoolManager,
         sando_state_manager::SandoStateManager,
     },
-    types::{Action, Event, StratConfig},
+    simulator::lil_router::find_optimal_input,
+    types::{Action, Event, RawIngredients, StratConfig},
 };
 
 pub struct SandoBot<M> {
@@ -44,9 +47,13 @@ impl<M: Middleware + 'static> SandoBot<M> {
     }
 
     /// Main logic for the strategy
-    /// Checks if the RawIngredients are sandwichable
+    /// Checks if the passed `RawIngredients` is sandwichable
     #[allow(unused_mut)]
-    pub async fn is_sandwichable(&self, target_block: BlockInfo) -> Result<()> {
+    pub async fn is_sandwichable(
+        &self,
+        ingredients: RawIngredients,
+        target_block: BlockInfo,
+    ) -> Result<()> {
         // setup shared backend
         let shared_backend = SharedBackend::spawn_backend_thread(
             self.provider.clone(),
@@ -63,17 +70,13 @@ impl<M: Middleware + 'static> SandoBot<M> {
 
         #[cfg(feature = "debug")]
         {
-            weth_inventory = (*crate::constants::WETH_FUND_AMT).into(); // Set a new value only when the debug feature is active
+            // Set a new value only when the debug feature is active
+            weth_inventory = (*crate::constants::WETH_FUND_AMT).into();
         }
 
-        let optimal = find_optimal_input(
-            meats,
-            target_pool,
-            target_block,
-            weth_inventory,
-            shared_backend,
-        )
-        .await?;
+        let weth_inventory = self.sando_state_manager.get_weth_inventory();
+
+        let optimal = find_optimal_input(ingredients, target_block, weth_inventory, shared_backend).await?;
 
         Ok(())
     }
@@ -114,22 +117,26 @@ impl<M: Middleware + 'static> SandoBot<M> {
     }
 
     /// Process new txs as they come in
-    async fn process_new_tx(&mut self, tx: Transaction) -> Option<Action> {
+    async fn process_new_tx(&mut self, victim_tx: Transaction) -> Option<Action> {
         // setup variables for processing tx
         let next_block = self.block_manager.get_next_block();
         let latest_block = self.block_manager.get_latest_block();
 
         // ignore txs that we can't include in next block
         // enhancement: simulate all txs regardless, store result, and use result when tx can included
-        if tx.max_fee_per_gas.unwrap_or_default() < next_block.base_fee_per_gas {
-            log_info_cyan!("{:?} mf<nbf", tx.hash);
+        if victim_tx.max_fee_per_gas.unwrap_or_default() < next_block.base_fee_per_gas {
+            log_info_cyan!("{:?} mf<nbf", victim_tx.hash);
             return None;
         }
 
         // check if tx is a swap
         let touched_pools = self
             .pool_manager
-            .get_touched_sandwichable_pools(&tx, latest_block.number.into(), self.provider.clone())
+            .get_touched_sandwichable_pools(
+                &victim_tx,
+                latest_block.number.into(),
+                self.provider.clone(),
+            )
             .await
             .map_err(|e| {
                 log_error!("Failed to get touched sandwichable pools: {}", e);
@@ -139,22 +146,47 @@ impl<M: Middleware + 'static> SandoBot<M> {
 
         // no touched pools = no sandwich opps
         if touched_pools.is_empty() {
-            info!("{:?}", tx.hash);
+            info!("{:?}", victim_tx.hash);
             return None;
         }
-
-        let weth_inventory = self.sando_state_manager.get_weth_inventory();
 
         // list of sandwiches that this victim tx produces
         let mut recipes = vec![];
 
         for pool in touched_pools {
-            let optimal_sandwich = match self.is_sandwichable(next_block.clone()).await {
+            let (token_a, token_b) = match pool {
+                UniswapV2(p) => (p.token_a, p.token_b),
+                UniswapV3(p) => (p.token_a, p.token_b),
+            };
+
+            if token_a != *WETH_ADDRESS && token_b != *WETH_ADDRESS {
+                // contract can only sandwich weth pools
+                continue;
+            }
+
+            // token that we use as frontrun input and backrun output
+            let start_end_token = *WETH_ADDRESS;
+            // token that we use as frontrun output and backrun input
+            let intermediary_token = if token_a == start_end_token {
+                token_b
+            } else {
+                token_a
+            };
+
+            let ingredients = RawIngredients::new(
+                vec![victim_tx.clone()],
+                start_end_token,
+                intermediary_token,
+                pool,
+            );
+
+            let optimal_sandwich = match self.is_sandwichable(ingredients, next_block.clone()).await
+            {
                 Ok(s) => {
-                    log_sandwichable!("{:?} {:?}", tx.hash, s);
+                    log_sandwichable!("{:?} {:?}", victim_tx.hash, s);
                     recipes.push(s)
                 }
-                Err(e) => log_not_sandwichable!("{:?} {:?}", tx.hash, e),
+                Err(e) => log_not_sandwichable!("{:?} {:?}", victim_tx.hash, e),
             };
         }
 

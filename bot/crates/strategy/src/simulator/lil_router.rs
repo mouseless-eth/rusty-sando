@@ -1,9 +1,6 @@
 use anyhow::{anyhow, Result};
-use cfmms::pool::Pool::{self, UniswapV2, UniswapV3};
-use ethers::{
-    abi,
-    types::{Transaction, U256},
-};
+use cfmms::pool::Pool::{UniswapV2, UniswapV3};
+use ethers::{abi, types::U256};
 use foundry_evm::{
     executor::{fork::SharedBackend, Bytecode, ExecutionResult, Output, TransactTo},
     revm::{
@@ -22,6 +19,7 @@ use crate::{
     tx_utils::lil_router_interface::{
         build_swap_v2_data, build_swap_v3_data, decode_swap_v2_result, decode_swap_v3_result,
     },
+    types::RawIngredients,
 };
 
 use super::setup_block_state;
@@ -29,8 +27,7 @@ use super::setup_block_state;
 // Juiced implementation of https://research.ijcaonline.org/volume65/number14/pxc3886165.pdf
 // splits range in more intervals, search intervals concurrently, compare, repeat till termination
 pub async fn find_optimal_input(
-    meats: Vec<Transaction>,
-    target_pool: Pool,
+    ingredients: RawIngredients,
     target_block: BlockInfo,
     weth_inventory: U256,
     shared_backend: SharedBackend,
@@ -115,8 +112,7 @@ pub async fn find_optimal_input(
                 *bound,
                 target_block,
                 shared_backend.clone(),
-                meats.clone(),
-                target_pool,
+                ingredients.clone(),
             ));
             revenues.push(sim);
         }
@@ -174,21 +170,18 @@ async fn evaluate_sandwich_revenue(
     frontrun_in: U256,
     next_block: BlockInfo,
     shared_backend: SharedBackend,
-    meats: Vec<Transaction>,
-    target_pool: Pool,
+    ingredients: RawIngredients,
 ) -> Result<U256> {
     let mut fork_db = CacheDB::new(shared_backend);
     inject_lil_router_code(&mut fork_db);
 
     let mut evm = EVM::new();
     evm.database(fork_db);
-
     setup_block_state(&mut evm, &next_block);
-
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                    FRONTRUN TRANSACTION                    */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
-    let frontrun_data = match target_pool {
+    let frontrun_data = match ingredients.get_target_pool() {
         UniswapV2(pool) => build_swap_v2_data(frontrun_in, pool, true),
         UniswapV3(pool) => build_swap_v3_data(frontrun_in.as_u128().into(), pool, true),
     };
@@ -216,7 +209,7 @@ async fn evaluate_sandwich_revenue(
             return Err(anyhow!("[lilRouter: HALT] Frontrun: {:?}", reason))
         }
     };
-    let (_frontrun_out, backrun_in) = match target_pool {
+    let (_frontrun_out, backrun_in) = match ingredients.get_target_pool() {
         UniswapV2(_) => match decode_swap_v2_result(output.into()) {
             Ok(output) => output,
             Err(e) => {
@@ -235,7 +228,7 @@ async fn evaluate_sandwich_revenue(
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                     MEAT TRANSACTION/s                     */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
-    for meat in meats {
+    for meat in ingredients.get_meats() {
         evm.env.tx.caller = rAddress::from_slice(&meat.from.0);
         evm.env.tx.transact_to =
             TransactTo::Call(rAddress::from_slice(&meat.to.unwrap_or_default().0));
@@ -266,7 +259,7 @@ async fn evaluate_sandwich_revenue(
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                    BACKRUN TRANSACTION                     */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
-    let backrun_data = match target_pool {
+    let backrun_data = match ingredients.get_target_pool() {
         UniswapV2(pool) => build_swap_v2_data(backrun_in, pool, false),
         UniswapV3(pool) => build_swap_v3_data(backrun_in.as_u128().into(), pool, false),
     };
@@ -294,7 +287,7 @@ async fn evaluate_sandwich_revenue(
             return Err(anyhow!("[lilRouter: HALT] Backrun: {:?}", reason))
         }
     };
-    let (_backrun_out, post_sandwich_balance) = match target_pool {
+    let (_backrun_out, post_sandwich_balance) = match ingredients.get_target_pool() {
         UniswapV2(_) => match decode_swap_v2_result(output.into()) {
             Ok(output) => output,
             Err(e) => return Err(anyhow!("[lilRouter: FailedToDecodeOutput] {:?}", e)),
@@ -312,7 +305,7 @@ async fn evaluate_sandwich_revenue(
     Ok(revenue)
 }
 
-/// Inserts custom router contract into evm instance for simulations
+/// Inserts custom minimal router contract into evm instance for simulations
 fn inject_lil_router_code(db: &mut CacheDB<SharedBackend>) {
     // insert lilRouter bytecode
     let lil_router_info = AccountInfo::new(
