@@ -12,23 +12,22 @@ use foundry_evm::{
 
 use crate::{
     constants::{
-        BRAINDANCE_ADDRESS, BRAINDANCE_CODE, BRAINDANCE_CONTROLLER, ONE_ETHER_IN_WEI, WETH_ADDRESS,
+        LIL_ROUTER_ADDRESS, LIL_ROUTER_CODE, LIL_ROUTER_CONTROLLER, ONE_ETHER_IN_WEI, WETH_ADDRESS,
         WETH_FUND_AMT,
     },
-    managers::block_manager::BlockInfo,
     tx_utils::lil_router_interface::{
         build_swap_v2_data, build_swap_v3_data, decode_swap_v2_result, decode_swap_v3_result,
     },
-    types::RawIngredients,
+    types::{BlockInfo, RawIngredients},
 };
 
-use super::setup_block_state;
+use super::{eth_to_wei, setup_block_state};
 
 // Juiced implementation of https://research.ijcaonline.org/volume65/number14/pxc3886165.pdf
 // splits range in more intervals, search intervals concurrently, compare, repeat till termination
 pub async fn find_optimal_input(
-    ingredients: RawIngredients,
-    target_block: BlockInfo,
+    ingredients: &RawIngredients,
+    target_block: &BlockInfo,
     weth_inventory: U256,
     shared_backend: SharedBackend,
 ) -> Result<U256> {
@@ -110,7 +109,7 @@ pub async fn find_optimal_input(
         for bound in &intervals {
             let sim = tokio::task::spawn(evaluate_sandwich_revenue(
                 *bound,
-                target_block,
+                target_block.clone(),
                 shared_backend.clone(),
                 ingredients.clone(),
             ));
@@ -178,6 +177,7 @@ async fn evaluate_sandwich_revenue(
     let mut evm = EVM::new();
     evm.database(fork_db);
     setup_block_state(&mut evm, &next_block);
+
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                    FRONTRUN TRANSACTION                    */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
@@ -186,8 +186,8 @@ async fn evaluate_sandwich_revenue(
         UniswapV3(pool) => build_swap_v3_data(frontrun_in.as_u128().into(), pool, true),
     };
 
-    evm.env.tx.caller = *BRAINDANCE_CONTROLLER;
-    evm.env.tx.transact_to = TransactTo::Call(*BRAINDANCE_ADDRESS);
+    evm.env.tx.caller = *LIL_ROUTER_CONTROLLER;
+    evm.env.tx.transact_to = TransactTo::Call(*LIL_ROUTER_ADDRESS);
     evm.env.tx.data = frontrun_data.0;
     evm.env.tx.gas_limit = 700000;
     evm.env.tx.gas_price = next_block.base_fee_per_gas.into();
@@ -228,7 +228,7 @@ async fn evaluate_sandwich_revenue(
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     /*                     MEAT TRANSACTION/s                     */
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
-    for meat in ingredients.get_meats() {
+    for meat in ingredients.get_meats_ref().iter() {
         evm.env.tx.caller = rAddress::from_slice(&meat.from.0);
         evm.env.tx.transact_to =
             TransactTo::Call(rAddress::from_slice(&meat.to.unwrap_or_default().0));
@@ -264,8 +264,8 @@ async fn evaluate_sandwich_revenue(
         UniswapV3(pool) => build_swap_v3_data(backrun_in.as_u128().into(), pool, false),
     };
 
-    evm.env.tx.caller = *BRAINDANCE_CONTROLLER;
-    evm.env.tx.transact_to = TransactTo::Call(*BRAINDANCE_ADDRESS);
+    evm.env.tx.caller = *LIL_ROUTER_CONTROLLER;
+    evm.env.tx.transact_to = TransactTo::Call(*LIL_ROUTER_ADDRESS);
     evm.env.tx.data = backrun_data.0;
     evm.env.tx.gas_limit = 700000;
     evm.env.tx.gas_price = next_block.base_fee_per_gas.into();
@@ -311,24 +311,20 @@ fn inject_lil_router_code(db: &mut CacheDB<SharedBackend>) {
     let lil_router_info = AccountInfo::new(
         rU256::ZERO,
         0,
-        Bytecode::new_raw((*BRAINDANCE_CODE.0).into()),
+        Bytecode::new_raw((*LIL_ROUTER_CODE.0).into()),
     );
-    db.insert_account_info(*BRAINDANCE_ADDRESS, lil_router_info);
+    db.insert_account_info(*LIL_ROUTER_ADDRESS, lil_router_info);
 
     // insert and fund lilRouter controller (so we can spoof)
     let controller_info = AccountInfo::new(*WETH_FUND_AMT, 0, Bytecode::default());
-    db.insert_account_info(*BRAINDANCE_CONTROLLER, controller_info);
+    db.insert_account_info(*LIL_ROUTER_CONTROLLER, controller_info);
 
     // fund lilRouter with 200 weth
     let slot = keccak256(&abi::encode(&[
-        abi::Token::Address((*BRAINDANCE_ADDRESS).into()),
+        abi::Token::Address((*LIL_ROUTER_ADDRESS).into()),
         abi::Token::Uint(U256::from(3)),
     ]));
 
     db.insert_account_storage((*WETH_ADDRESS).into(), slot.into(), eth_to_wei(200))
         .unwrap();
-}
-
-fn eth_to_wei(amt: u128) -> rU256 {
-    rU256::from(amt).checked_mul(*ONE_ETHER_IN_WEI).unwrap()
 }

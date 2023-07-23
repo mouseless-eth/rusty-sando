@@ -12,12 +12,11 @@ use crate::{
     constants::WETH_ADDRESS,
     log_error, log_info_cyan, log_new_block_info, log_not_sandwichable, log_sandwichable,
     managers::{
-        block_manager::{BlockInfo, BlockManager},
-        pool_manager::PoolManager,
+        block_manager::BlockManager, pool_manager::PoolManager,
         sando_state_manager::SandoStateManager,
     },
-    simulator::lil_router::find_optimal_input,
-    types::{Action, Event, RawIngredients, StratConfig},
+    simulator::{huff_sando::create_recipe, lil_router::find_optimal_input},
+    types::{Action, BlockInfo, Event, RawIngredients, StratConfig},
 };
 
 pub struct SandoBot<M> {
@@ -68,15 +67,31 @@ impl<M: Middleware + 'static> SandoBot<M> {
             Some((target_block.number - 1).into()),
         );
 
+        let mut weth_inventory = self.sando_state_manager.get_weth_inventory();
+
         #[cfg(feature = "debug")]
         {
             // Set a new value only when the debug feature is active
             weth_inventory = (*crate::constants::WETH_FUND_AMT).into();
         }
 
-        let weth_inventory = self.sando_state_manager.get_weth_inventory();
+        let optimal_input = find_optimal_input(
+            &ingredients,
+            &target_block,
+            weth_inventory,
+            shared_backend.clone(),
+        )
+        .await?;
 
-        let optimal = find_optimal_input(ingredients, target_block, weth_inventory, shared_backend).await?;
+        let recipe = create_recipe(
+            &ingredients,
+            &target_block,
+            optimal_input,
+            weth_inventory,
+            self.sando_state_manager.get_searcher(),
+            self.sando_state_manager.get_sando_address(),
+            shared_backend,
+        )?;
 
         Ok(())
     }
@@ -166,6 +181,7 @@ impl<M: Middleware + 'static> SandoBot<M> {
 
             // token that we use as frontrun input and backrun output
             let start_end_token = *WETH_ADDRESS;
+
             // token that we use as frontrun output and backrun input
             let intermediary_token = if token_a == start_end_token {
                 token_b
@@ -183,10 +199,14 @@ impl<M: Middleware + 'static> SandoBot<M> {
             let optimal_sandwich = match self.is_sandwichable(ingredients, next_block.clone()).await
             {
                 Ok(s) => {
+                    println!("OKAY: {:?}", s);
                     log_sandwichable!("{:?} {:?}", victim_tx.hash, s);
                     recipes.push(s)
                 }
-                Err(e) => log_not_sandwichable!("{:?} {:?}", victim_tx.hash, e),
+                Err(e) => {
+                    println!("ERR: {:?}", e);
+                    log_not_sandwichable!("{:?} {:?}", victim_tx.hash, e)
+                }
             };
         }
 

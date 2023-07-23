@@ -7,7 +7,7 @@ mod simulator;
 mod managers;
 
 /// Module contains logic related to transaction building
-pub(crate) mod tx_utils;
+mod tx_utils;
 
 /// Module contains core strategy implementation
 pub mod bot;

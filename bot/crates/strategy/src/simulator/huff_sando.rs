@@ -1,37 +1,53 @@
 use anvil::eth::util::get_precompiles_for;
 use anyhow::{anyhow, Result};
-use cfmms::pool::Pool;
 use cfmms::pool::Pool::{UniswapV2, UniswapV3};
-use ethers::abi::{self, Address, ParamType};
-use ethers::types::{Bytes, Transaction, U256};
-use foundry_evm::executor::inspector::AccessListTracer;
-use foundry_evm::executor::{ExecutionResult, Output, TransactTo};
-use foundry_evm::{
-    executor::fork::SharedBackend,
-    revm::{
-        db::CacheDB,
-        primitives::{Address as rAddress, U256 as rU256},
-        EVM,
-    },
+use cfmms::pool::UniswapV2Pool;
+use ethers::abi::{self, parse_abi, Address, ParamType};
+use ethers::prelude::BaseContract;
+use ethers::types::{Bytes, U256};
+use foundry_evm::executor::{
+    fork::SharedBackend, inspector::AccessListTracer, ExecutionResult, Output, TransactTo,
 };
+use foundry_evm::revm::{
+    db::CacheDB,
+    primitives::{Address as rAddress, U256 as rU256},
+    EVM,
+};
+use foundry_evm::utils::{h160_to_b160, u256_to_ru256};
 
-use crate::constants::{GET_RESERVES_SIG, WETH_ADDRESS};
-use crate::tx_utils::huff_sando_interface::common::weth_encoder::WethEncoder;
-use crate::{managers::block_manager::BlockInfo, simulator::setup_block_state};
+use crate::constants::{GET_RESERVES_SIG, SUGAR_DADDY, WETH_ADDRESS};
+use crate::simulator::setup_block_state;
+use crate::tx_utils::huff_sando_interface::{
+    common::weth_encoder::WethEncoder,
+    v2::{v2_create_backrun_payload, v2_create_frontrun_payload},
+    v3::{v3_create_backrun_payload, v3_create_frontrun_payload},
+};
+use crate::types::{BlockInfo, RawIngredients};
+
+use super::salmonella_inspector::{IsSandoSafu, SalmonellaInspectoooor};
 
 /// finds if sandwich is profitable + salmonella free
-fn create_recipe(
-    meats: Vec<Transaction>,
-    optimal_in: U256,
-    sandwich_start_balance: U256,
-    target_pool: Pool,
+pub fn create_recipe(
+    ingredients: &RawIngredients,
     next_block: &BlockInfo,
-    shared_backend: SharedBackend,
+    optimal_in: U256,
+    sando_start_bal: U256,
     searcher: Address,
     sando_address: Address,
+    shared_backend: SharedBackend,
 ) -> Result<()> {
-    // setup evm simulation
+    #[allow(unused_mut)]
     let mut fork_db = CacheDB::new(shared_backend);
+
+    #[cfg(feature = "debug")]
+    {
+        inject_huff_sando(
+            &mut fork_db,
+            sando_address.0.into(),
+            searcher.0.into(),
+            sando_start_bal,
+        );
+    }
     let mut evm = EVM::new();
     evm.database(fork_db);
     setup_block_state(&mut evm, &next_block);
@@ -39,36 +55,32 @@ fn create_recipe(
     // *´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     // *                    FRONTRUN TRANSACTION                    */
     // *.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
-    //
     // encode frontrun_in before passing to sandwich contract
-    let frontrun_in = WethEncoder::encode(optimal_in);
+    let frontrun_in = WethEncoder::decode(WethEncoder::encode(optimal_in));
 
     // caluclate frontrun_out using encoded frontrun_in
-    let frontrun_out = match target_pool {
-        UniswapV2(_) => {
-            let target_pool = target_pool.address();
+    let frontrun_out = match ingredients.get_target_pool() {
+        UniswapV2(p) => {
             evm.env.tx.gas_price = next_block.base_fee_per_gas.into();
             evm.env.tx.gas_limit = 700000;
             evm.env.tx.value = rU256::ZERO;
-            let amount_out = get_amount_out_evm(frontrun_in, target_pool, &mut evm)?;
-            tx_builder::v2::decode_intermediary(amount_out, true, token_out)
+            v2_get_amount_out(frontrun_in, p, true, &mut evm)?
         }
         UniswapV3(_) => U256::zero(),
     };
 
     // create tx.data and tx.value for frontrun_in
-    let (frontrun_data, frontrun_value) = match target_pool {
-        UniswapV2(_) => sandwich_maker.v2.create_payload_weth_is_input(
+    let (frontrun_data, frontrun_value) = match ingredients.get_target_pool() {
+        UniswapV2(p) => v2_create_frontrun_payload(
+            p,
+            ingredients.get_intermediary_token(),
             frontrun_in,
             frontrun_out,
-            ingredients.intermediary_token,
-            ingredients.target_pool,
         ),
-        UniswapV3(_) => v3_create_frontrun_payload(
-            target_pool.address(),
+        UniswapV3(p) => v3_create_frontrun_payload(
+            p,
+            ingredients.get_intermediary_token(),
             frontrun_in.as_u128().into(),
-            ingredients.startend_token,
-            ingredients.intermediary_token,
         ),
     };
 
@@ -91,22 +103,34 @@ fn create_recipe(
     evm.inspect_ref(&mut access_list_inspector)
         .map_err(|e| anyhow!("[EVM ERROR] sando frontrun: {:?}", (e)))?;
     let frontrun_access_list = access_list_inspector.access_list();
-    evm.env.tx.access_list = frontrun_access_list;
+    evm.env.tx.access_list = frontrun_access_list
+        .0
+        .into_iter()
+        .map(|x| {
+            (
+                h160_to_b160(x.address),
+                x.storage_keys
+                    .into_iter()
+                    .map(|y| u256_to_ru256(y.0.into()))
+                    .collect(),
+            )
+        })
+        .collect();
 
     // run again but now with access list (so that we get accurate gas used)
     // run with a salmonella inspector to flag `suspicious` opcodes
     let mut salmonella_inspector = SalmonellaInspectoooor::new();
     let frontrun_result = match evm.inspect_commit(&mut salmonella_inspector) {
         Ok(result) => result,
-        Err(e) => return Err(anyhow!("[EVM ERROR] sando frontrun: {:?}", e)),
+        Err(e) => return Err(anyhow!("[huffsando: EVM ERROR] frontrun: {:?}", e)),
     };
     match frontrun_result {
         ExecutionResult::Success { .. } => { /* continue operation */ }
         ExecutionResult::Revert { output, .. } => {
-            return Err(anyhow!("[REVERT] sando frontrun: {:?}", output));
+            return Err(anyhow!("[huffsando: REVERT] frontrun: {:?}", output));
         }
         ExecutionResult::Halt { reason, .. } => {
-            return Err(anyhow!("[HALT] sando frontrun: {:?}", reason));
+            return Err(anyhow!("[huffsando: HALT] frontrun: {:?}", reason));
         }
     };
     match salmonella_inspector.is_sando_safu() {
@@ -125,7 +149,7 @@ fn create_recipe(
     // *                     MEAT TRANSACTION/s                     */
     // *.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
     let mut is_meat_good = Vec::new();
-    for meat in meats.iter() {
+    for meat in ingredients.get_meats_ref().iter() {
         evm.env.tx.caller = rAddress::from_slice(&meat.from.0);
         evm.env.tx.transact_to =
             TransactTo::Call(rAddress::from_slice(&meat.to.unwrap_or_default().0));
@@ -165,43 +189,25 @@ fn create_recipe(
     // *´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     // *                    BACKRUN TRANSACTION                     */
     // *.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
-    //
     // encode backrun_in before passing to sandwich contract
-    let token_in = ingredients.intermediary_token;
-    let token_out = ingredients.startend_token;
-    let balance = get_balance_of_evm(token_in, sando_address, next_block, &mut evm)?;
-    let backrun_in = match pool_variant {
-        PoolVariant::UniswapV2 => {
-            tx_builder::v2::encode_intermediary_with_dust(balance, false, token_in)
-        }
-        PoolVariant::UniswapV3 => tx_builder::v3::encode_intermediary_token(balance),
-    };
+    let backrun_token_in = ingredients.get_intermediary_token();
+    let backrun_token_out = ingredients.get_start_end_token();
+    let backrun_in = get_erc20_balance(backrun_token_in, sando_address, next_block, &mut evm)?;
 
     // caluclate backrun_out using encoded backrun_in
-    let backrun_out = match pool_variant {
-        PoolVariant::UniswapV2 => {
-            let target_pool = ingredients.target_pool.address;
-            let out = get_amount_out_evm(backrun_in, target_pool, token_in, token_out, &mut evm)?;
-            tx_builder::v2::encode_weth(out)
+    let backrun_out = match ingredients.get_target_pool() {
+        UniswapV2(p) => {
+            let out = v2_get_amount_out(backrun_in, p, false, &mut evm)?;
+            out
         }
-        PoolVariant::UniswapV3 => U256::zero(),
+        UniswapV3(_p) => U256::zero(), // we don't need to know backrun out for v3
     };
 
     // create tx.data and tx.value for backrun_in
-    let (backrun_data, backrun_value) = match pool_variant {
-        PoolVariant::UniswapV2 => sandwich_maker.v2.create_payload_weth_is_output(
-            backrun_in,
-            backrun_out,
-            ingredients.intermediary_token,
-            ingredients.target_pool,
-        ),
-        PoolVariant::UniswapV3 => (
-            sandwich_maker.v3.create_payload_weth_is_output(
-                backrun_in.as_u128().into(),
-                ingredients.intermediary_token,
-                ingredients.startend_token,
-                ingredients.target_pool,
-            ),
+    let (backrun_data, backrun_value) = match ingredients.get_target_pool() {
+        UniswapV2(p) => v2_create_backrun_payload(p, backrun_token_in, backrun_in, backrun_out),
+        UniswapV3(p) => (
+            v3_create_backrun_payload(p, backrun_token_in, backrun_in),
             U256::zero(),
         ),
     };
@@ -225,7 +231,19 @@ fn create_recipe(
         .map_err(|e| anyhow!("[huffsando: EVM ERROR] sando frontrun: {:?}", e))
         .unwrap();
     let backrun_access_list = access_list_inspector.access_list();
-    evm.env.tx.access_list = backrun_access_list;
+    evm.env.tx.access_list = backrun_access_list
+        .0
+        .into_iter()
+        .map(|x| {
+            (
+                h160_to_b160(x.address),
+                x.storage_keys
+                    .into_iter()
+                    .map(|y| u256_to_ru256(y.0.into()))
+                    .collect(),
+            )
+        })
+        .collect();
 
     // run again but now with access list (so that we get accurate gas used)
     // run with a salmonella inspector to flag `suspicious` opcodes
@@ -237,16 +255,19 @@ fn create_recipe(
     match backrun_result {
         ExecutionResult::Success { .. } => { /* continue */ }
         ExecutionResult::Revert { output, .. } => {
-            return Err(anyhow!("[huffsando: REVERT] sando backrun: {:?}", output));
+            return Err(anyhow!("[huffsando: REVERT] backrun: {:?}", output));
         }
         ExecutionResult::Halt { reason, .. } => {
-            return Err(anyhow!("[huffsando: HALT] sando backrun: {:?}", reason))
+            return Err(anyhow!("[huffsando: HALT] backrun: {:?}", reason))
         }
     };
     match salmonella_inspector.is_sando_safu() {
         IsSandoSafu::Safu => { /* continue operation */ }
         IsSandoSafu::NotSafu(not_safu_opcodes) => {
-            return Err(SimulationError::BackrunNotSafu(not_safu_opcodes))
+            return Err(anyhow!(
+                "[huffsando: BACKRUN_NOT_SAFU] bad_opcodes->{:?}",
+                not_safu_opcodes
+            ))
         }
     }
 
@@ -257,42 +278,74 @@ fn create_recipe(
     // *.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
     //
     // caluclate revenue from balance change
-    let post_sandwich_balance = get_balance_of_evm(
-        ingredients.startend_token,
-        sando_address,
-        next_block,
-        &mut evm,
-    )?;
-    let revenue = post_sandwich_balance
-        .checked_sub(sandwich_start_balance)
+    let post_sando_bal = get_erc20_balance(backrun_token_out, sando_address, next_block, &mut evm)?;
+
+    println!("sando_start_bal {:?}", sando_start_bal);
+    println!("post_sando_bal {:?}", post_sando_bal);
+
+    let revenue = post_sando_bal
+        .checked_sub(sando_start_bal)
         .unwrap_or_default();
 
     // filter only passing meat txs
-    let good_meats_only = meats
-        .iter()
-        .zip(is_meat_good.iter())
-        .filter(|&(_, &b)| b)
-        .map(|(s, _)| s.to_owned())
-        .collect();
+    //let good_meats_only = ingredients
+    //    .get_meats_ref()
+    //    .iter()
+    //    .zip(is_meat_good.iter())
+    //    .filter(|&(_, &b)| b)
+    //    .map(|(s, _)| s.to_owned())
+    //    .collect();
 
-    //Ok(OptimalRecipe::new(
-    //    frontrun_data.into(),
-    //    frontrun_value,
-    //    frontrun_gas_used,
-    //    convert_access_list(frontrun_access_list),
-    //    backrun_data.into(),
-    //    backrun_value,
-    //    backrun_gas_used,
-    //    convert_access_list(backrun_access_list),
-    //    good_meats_only,
-    //    revenue,
-    //    ingredients.target_pool,
-    //    ingredients.state_diffs.clone(),
-    //))
     Ok(())
 }
 
+/// Get the balance of a token in an evm (account for tax)
+pub fn get_erc20_balance(
+    token: Address,
+    owner: Address,
+    block: &BlockInfo,
+    evm: &mut EVM<CacheDB<SharedBackend>>,
+) -> Result<U256> {
+    let erc20 = BaseContract::from(
+        parse_abi(&["function balanceOf(address) external returns (uint)"]).unwrap(),
+    );
+
+    evm.env.tx.transact_to = TransactTo::Call(token.0.into());
+    evm.env.tx.data = erc20.encode("balanceOf", owner).unwrap().0;
+    evm.env.tx.caller = (*SUGAR_DADDY).into(); // spoof addy with a lot of eth
+    evm.env.tx.nonce = None;
+    evm.env.tx.gas_price = block.base_fee_per_gas.into();
+    evm.env.tx.gas_limit = 700000;
+    evm.env.tx.value = rU256::ZERO;
+
+    let result = match evm.transact_ref() {
+        Ok(result) => result.result,
+        Err(e) => {
+            return Err(anyhow!("[get_erc20_balance: EVMError] {:?}", e));
+        }
+    };
+
+    let output: Bytes = match result {
+        ExecutionResult::Success { output, .. } => match output {
+            Output::Call(o) => o.into(),
+            Output::Create(o, _) => o.into(),
+        },
+        ExecutionResult::Revert { output, .. } => {
+            return Err(anyhow!("[get_erc20_balance: Revert] {:?}", output))
+        }
+        ExecutionResult::Halt { reason, .. } => {
+            return Err(anyhow!("[get_erc20_balance: Halt] {:?}", reason))
+        }
+    };
+
+    match erc20.decode_output("balanceOf", &output) {
+        Ok(tokens) => return Ok(tokens),
+        Err(e) => return Err(anyhow!("[get_erc20_balance: ABI Error] {:?}", e)),
+    }
+}
+
 // Find amount out from an amount in using the k=xy formula
+// note: reserve values taken from evm
 // note: assuming fee is set to 3% for all pools (not case irl)
 //
 // Arguments:
@@ -305,25 +358,21 @@ fn create_recipe(
 // Returns:
 // Ok(U256): amount out
 // Err(SimulationError): if error during caluclation
-pub fn get_amount_out_evm(
+pub fn v2_get_amount_out(
     amount_in: U256,
-    target_pool: Pool,
+    target_pool: UniswapV2Pool,
     is_frontrun: bool,
     evm: &mut EVM<CacheDB<SharedBackend>>,
 ) -> Result<U256> {
     // get reserves
     evm.env.tx.transact_to = TransactTo::Call(target_pool.address().0.into());
-    evm.env.tx.caller = (*WETH_ADDRESS).0.into(); // spoof weth address for its ether
+    evm.env.tx.caller = (*SUGAR_DADDY).0.into(); // spoof weth address for its ether
     evm.env.tx.value = rU256::ZERO;
-    evm.env.tx.data = (*GET_RESERVES_SIG).0; // getReserves()
+    evm.env.tx.data = (*GET_RESERVES_SIG).0.clone(); // getReserves()
+    evm.env.tx.nonce = None;
     let result = match evm.transact_ref() {
         Ok(result) => result.result,
-        Err(e) => {
-            return Err(anyhow!(
-                "[huffsando: EVM ERROR, get_amount_out_evm] {:?}",
-                e
-            ))
-        }
+        Err(e) => return Err(anyhow!("[get_amount_out_evm: EVM ERROR] {:?}", e)),
     };
     let output: Bytes = match result {
         ExecutionResult::Success { output, .. } => match output {
@@ -331,16 +380,10 @@ pub fn get_amount_out_evm(
             Output::Create(o, _) => o.into(),
         },
         ExecutionResult::Revert { output, .. } => {
-            return Err(anyhow!(
-                "[huffsando: EVM REVERTED, get_amount_out_evm] {:?}",
-                output
-            ))
+            return Err(anyhow!("[get_amount_out_evm: EVM REVERTED] {:?}", output))
         }
         ExecutionResult::Halt { reason, .. } => {
-            return Err(anyhow!(
-                "[huffsando: EVM HALT, get_amount_out_evm] {:?}",
-                reason
-            ))
+            return Err(anyhow!("[get_amount_out_evm: EVM HALT] {:?}", reason))
         }
     };
 
@@ -370,7 +413,7 @@ pub fn get_amount_out_evm(
         (other_token, *WETH_ADDRESS)
     };
 
-    let (reserve_in, reserve_out) = match token_in < token_out {
+    let (reserve_in, reserve_out) = match input_token < output_token {
         true => (reserves_0, reserves_1),
         false => (reserves_1, reserves_0),
     };
@@ -381,4 +424,66 @@ pub fn get_amount_out_evm(
     let amount_out: U256 = numerator.checked_div(denominator).unwrap_or(U256::zero());
 
     Ok(amount_out)
+}
+
+//#[cfg(feature = "debug")]
+fn inject_huff_sando(
+    db: &mut CacheDB<SharedBackend>,
+    huff_sando_addy: foundry_evm::executor::B160,
+    searcher: foundry_evm::executor::B160,
+    sando_start_bal: U256,
+) {
+    // compile huff contract
+    let git_root = std::str::from_utf8(
+        &std::process::Command::new("git")
+            .arg("rev-parse")
+            .arg("--show-toplevel")
+            .output()
+            .expect("Failed to execute git command")
+            .stdout,
+    )
+    .unwrap()
+    .trim()
+    .to_string();
+
+    let mut contract_dir = std::path::PathBuf::from(git_root);
+    contract_dir.push("contract/src");
+
+    let output = std::process::Command::new("huffc")
+        .arg("--bin-runtime")
+        .arg("sando.huff")
+        .current_dir(contract_dir)
+        .output()
+        .expect("Failed to compile huff sando contract");
+
+    assert!(output.status.success(), "Command execution failed");
+
+    let huff_sando_code = std::str::from_utf8(&output.stdout).unwrap();
+    let huff_sando_code = <Bytes as std::str::FromStr>::from_str(huff_sando_code).unwrap();
+
+    //// insert huff sando bytecode
+    let huff_sando_info = foundry_evm::revm::primitives::AccountInfo::new(
+        rU256::ZERO,
+        0,
+        foundry_evm::executor::Bytecode::new_raw(huff_sando_code.0),
+    );
+
+    db.insert_account_info(huff_sando_addy, huff_sando_info);
+
+    // insert and fund lilRouter controller (so we can spoof)
+    let searcher_info = foundry_evm::revm::primitives::AccountInfo::new(
+        crate::simulator::eth_to_wei(200),
+        0,
+        foundry_evm::executor::Bytecode::default(),
+    );
+    db.insert_account_info(searcher, searcher_info);
+
+    // fund huff sando with 200 weth
+    let slot = foundry_evm::revm::primitives::keccak256(&abi::encode(&[
+        abi::Token::Address(huff_sando_addy.0.into()),
+        abi::Token::Uint(U256::from(3)),
+    ]));
+
+    db.insert_account_storage((*WETH_ADDRESS).into(), slot.into(), sando_start_bal.into())
+        .unwrap();
 }
