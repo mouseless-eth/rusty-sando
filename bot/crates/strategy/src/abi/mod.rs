@@ -30,8 +30,3 @@ abigen!(
     "src/abi/IERC20.abi",
     event_derives(serde::Deserialize, serde::Serialize)
 );
-abigen!(
-    BrainDance,
-    "src/abi/IBrainDance.abi",
-    event_derives(serde::Deserialize, serde::Serialize)
-);
