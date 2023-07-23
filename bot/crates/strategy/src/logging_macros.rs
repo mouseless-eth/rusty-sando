@@ -13,10 +13,13 @@ macro_rules! log_not_sandwichable {
 }
 
 #[macro_export]
-macro_rules! log_sandwichable {
-    ($($arg:tt)*) => {
-        info!("{}", format_args!($($arg)*).to_string().green())
-    };
+macro_rules! log_opportunity {
+    ($meats:expr, $optimal_input:expr, $revenue:expr) => {{
+        info!("\n{}", "[OPPORTUNITY DETECTED]".green().bold());
+        info!("meats: {}", $meats.to_string().green());
+        info!("optimal_input: {} wETH", $optimal_input.to_string().green());
+        info!("revenue      : {} wETH\n", $revenue.to_string().green());
+    }};
 }
 
 #[macro_export]

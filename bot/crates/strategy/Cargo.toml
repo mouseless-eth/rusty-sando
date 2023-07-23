@@ -15,7 +15,6 @@ anyhow = "1.0.70"
 serde = "1.0.145"
 
 # EVM based crates
-#cfmms = "0.6.2"
 cfmms = { git = "https://github.com/mouseless-eth/cfmms-rs.git", branch = "fix-serialize-dex-fee"}
 ethers-flashbots = { git = "https://github.com/onbjerg/ethers-flashbots"}
 ethers = {version = "2.0.7", features = ["abigen", "ws"]}
@@ -30,6 +29,9 @@ indicatif = "0.17.5"
 
 # Artemis
 artemis-core = { path = "../artemis-core" }
+
+[dev-dependencies]
+fern = {version = "0.6.2", features = ["colored"]}
 
 [features]
 debug = []

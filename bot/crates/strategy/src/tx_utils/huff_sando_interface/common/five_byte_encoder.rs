@@ -37,15 +37,22 @@ impl FiveByteMetaData {
         }
     }
 
+    /// Decrement the four bytes by one (used for when we want to keep dust on contract)
+    pub fn decrement_four_bytes(&mut self) {
+        self.four_bytes -= 1;
+    }
+
     /// Decodes the 5 bytes back to a 32 byte value (lossy)
     pub fn decode(&self) -> U256 {
-        return U256::from(self.four_bytes << (self.byte_shift * 8));
+        let value: u128 = (self.four_bytes as u128) << (self.byte_shift as u32 * 8);
+        return U256::from(value);
     }
 
     /// Finalize by encoding into five bytes for a specific param index
     /// Find memoffset for param index such that when stored it is shifted by `self.byte_shifts`
     pub fn finalize_to_bytes(self) -> Vec<u8> {
-        // first 4 value is used for function selector
+        // first +4 value is used for function selector, -4 because we account for the 4 bytes used
+        // for encoding the value to be shifted
         let mem_offset = 4 + 32 + (self.param_index * 32) - 4 - self.byte_shift;
 
         let (encoded, _) = eth_encode_packed::abi::encode_packed(&vec![

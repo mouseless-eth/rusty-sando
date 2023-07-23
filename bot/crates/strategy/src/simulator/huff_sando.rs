@@ -5,6 +5,7 @@ use cfmms::pool::UniswapV2Pool;
 use ethers::abi::{self, parse_abi, Address, ParamType};
 use ethers::prelude::BaseContract;
 use ethers::types::{Bytes, U256};
+use foundry_evm::executor::TxEnv;
 use foundry_evm::executor::{
     fork::SharedBackend, inspector::AccessListTracer, ExecutionResult, Output, TransactTo,
 };
@@ -17,12 +18,13 @@ use foundry_evm::utils::{h160_to_b160, u256_to_ru256};
 
 use crate::constants::{GET_RESERVES_SIG, SUGAR_DADDY, WETH_ADDRESS};
 use crate::simulator::setup_block_state;
+use crate::tx_utils::huff_sando_interface::common::five_byte_encoder::FiveByteMetaData;
 use crate::tx_utils::huff_sando_interface::{
     common::weth_encoder::WethEncoder,
     v2::{v2_create_backrun_payload, v2_create_frontrun_payload},
     v3::{v3_create_backrun_payload, v3_create_frontrun_payload},
 };
-use crate::types::{BlockInfo, RawIngredients};
+use crate::types::{BlockInfo, RawIngredients, SandoRecipe};
 
 use super::salmonella_inspector::{IsSandoSafu, SalmonellaInspectoooor};
 
@@ -35,7 +37,7 @@ pub fn create_recipe(
     searcher: Address,
     sando_address: Address,
     shared_backend: SharedBackend,
-) -> Result<()> {
+) -> Result<SandoRecipe> {
     #[allow(unused_mut)]
     let mut fork_db = CacheDB::new(shared_backend);
 
@@ -85,13 +87,19 @@ pub fn create_recipe(
     };
 
     // setup evm for frontrun transaction
-    evm.env.tx.caller = searcher.0.into();
-    evm.env.tx.transact_to = TransactTo::Call(sando_address.0.into());
-    evm.env.tx.data = frontrun_data.clone().into();
-    evm.env.tx.value = frontrun_value.into();
-    evm.env.tx.gas_limit = 700000;
-    evm.env.tx.gas_price = next_block.base_fee_per_gas.into();
-    evm.env.tx.access_list = Vec::default();
+    let mut frontrun_tx_env = TxEnv {
+        caller: searcher.0.into(),
+        gas_limit: 700000,
+        gas_price: next_block.base_fee_per_gas.into(),
+        gas_priority_fee: None,
+        transact_to: TransactTo::Call(sando_address.0.into()),
+        value: frontrun_value.into(),
+        data: frontrun_data.clone().into(),
+        chain_id: None,
+        nonce: None,
+        access_list: Default::default(),
+    };
+    evm.env.tx = frontrun_tx_env.clone();
 
     // get access list
     let mut access_list_inspector = AccessListTracer::new(
@@ -103,7 +111,8 @@ pub fn create_recipe(
     evm.inspect_ref(&mut access_list_inspector)
         .map_err(|e| anyhow!("[EVM ERROR] sando frontrun: {:?}", (e)))?;
     let frontrun_access_list = access_list_inspector.access_list();
-    evm.env.tx.access_list = frontrun_access_list
+
+    frontrun_tx_env.access_list = frontrun_access_list
         .0
         .into_iter()
         .map(|x| {
@@ -116,6 +125,7 @@ pub fn create_recipe(
             )
         })
         .collect();
+    evm.env.tx = frontrun_tx_env.clone();
 
     // run again but now with access list (so that we get accurate gas used)
     // run with a salmonella inspector to flag `suspicious` opcodes
@@ -192,7 +202,20 @@ pub fn create_recipe(
     // encode backrun_in before passing to sandwich contract
     let backrun_token_in = ingredients.get_intermediary_token();
     let backrun_token_out = ingredients.get_start_end_token();
+
+    // keep some dust
     let backrun_in = get_erc20_balance(backrun_token_in, sando_address, next_block, &mut evm)?;
+    let backrun_in = match ingredients.get_target_pool() {
+        UniswapV2(_) => {
+            let mut backrun_in_encoded = FiveByteMetaData::encode(backrun_in, 1);
+            backrun_in_encoded.decrement_four_bytes();
+            backrun_in_encoded.decode()
+        }
+        UniswapV3(_) => {
+            let backrun_in_encoded = FiveByteMetaData::encode(backrun_in, 1);
+            backrun_in_encoded.decode()
+        }
+    };
 
     // caluclate backrun_out using encoded backrun_in
     let backrun_out = match ingredients.get_target_pool() {
@@ -213,12 +236,19 @@ pub fn create_recipe(
     };
 
     // setup evm for backrun transaction
-    evm.env.tx.caller = searcher.0.into();
-    evm.env.tx.transact_to = TransactTo::Call(sando_address.0.into());
-    evm.env.tx.data = backrun_data.clone().into();
-    evm.env.tx.gas_limit = 700000;
-    evm.env.tx.gas_price = next_block.base_fee_per_gas.into();
-    evm.env.tx.value = backrun_value.into();
+    let mut backrun_tx_env = TxEnv {
+        caller: searcher.0.into(),
+        gas_limit: 700000,
+        gas_price: next_block.base_fee_per_gas.into(),
+        gas_priority_fee: None,
+        transact_to: TransactTo::Call(sando_address.0.into()),
+        value: backrun_value.into(),
+        data: backrun_data.clone().into(),
+        chain_id: None,
+        nonce: None,
+        access_list: Default::default(),
+    };
+    evm.env.tx = backrun_tx_env.clone();
 
     // create access list
     let mut access_list_inspector = AccessListTracer::new(
@@ -231,7 +261,7 @@ pub fn create_recipe(
         .map_err(|e| anyhow!("[huffsando: EVM ERROR] sando frontrun: {:?}", e))
         .unwrap();
     let backrun_access_list = access_list_inspector.access_list();
-    evm.env.tx.access_list = backrun_access_list
+    backrun_tx_env.access_list = backrun_access_list
         .0
         .into_iter()
         .map(|x| {
@@ -244,6 +274,7 @@ pub fn create_recipe(
             )
         })
         .collect();
+    evm.env.tx = backrun_tx_env.clone();
 
     // run again but now with access list (so that we get accurate gas used)
     // run with a salmonella inspector to flag `suspicious` opcodes
@@ -276,27 +307,30 @@ pub fn create_recipe(
     // *´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
     // *                      GENERATE REPORTS                      */
     // *.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
-    //
     // caluclate revenue from balance change
     let post_sando_bal = get_erc20_balance(backrun_token_out, sando_address, next_block, &mut evm)?;
-
-    println!("sando_start_bal {:?}", sando_start_bal);
-    println!("post_sando_bal {:?}", post_sando_bal);
 
     let revenue = post_sando_bal
         .checked_sub(sando_start_bal)
         .unwrap_or_default();
 
     // filter only passing meat txs
-    //let good_meats_only = ingredients
-    //    .get_meats_ref()
-    //    .iter()
-    //    .zip(is_meat_good.iter())
-    //    .filter(|&(_, &b)| b)
-    //    .map(|(s, _)| s.to_owned())
-    //    .collect();
+    let good_meats_only = ingredients
+        .get_meats_ref()
+        .iter()
+        .zip(is_meat_good.iter())
+        .filter(|&(_, &b)| b)
+        .map(|(s, _)| s.to_owned())
+        .collect();
 
-    Ok(())
+    Ok(SandoRecipe::new(
+        frontrun_tx_env,
+        frontrun_gas_used,
+        good_meats_only,
+        backrun_tx_env,
+        backrun_gas_used,
+        revenue,
+    ))
 }
 
 /// Get the balance of a token in an evm (account for tax)

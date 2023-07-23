@@ -10,13 +10,13 @@ use std::{collections::BTreeSet, sync::Arc};
 
 use crate::{
     constants::WETH_ADDRESS,
-    log_error, log_info_cyan, log_new_block_info, log_not_sandwichable, log_sandwichable,
+    log_error, log_info_cyan, log_new_block_info, log_not_sandwichable, log_opportunity,
     managers::{
         block_manager::BlockManager, pool_manager::PoolManager,
         sando_state_manager::SandoStateManager,
     },
     simulator::{huff_sando::create_recipe, lil_router::find_optimal_input},
-    types::{Action, BlockInfo, Event, RawIngredients, StratConfig},
+    types::{Action, BlockInfo, Event, RawIngredients, SandoRecipe, StratConfig},
 };
 
 pub struct SandoBot<M> {
@@ -52,7 +52,7 @@ impl<M: Middleware + 'static> SandoBot<M> {
         &self,
         ingredients: RawIngredients,
         target_block: BlockInfo,
-    ) -> Result<()> {
+    ) -> Result<SandoRecipe> {
         // setup shared backend
         let shared_backend = SharedBackend::spawn_backend_thread(
             self.provider.clone(),
@@ -93,7 +93,13 @@ impl<M: Middleware + 'static> SandoBot<M> {
             shared_backend,
         )?;
 
-        Ok(())
+        log_opportunity!(
+            ingredients.print_meats(),
+            optimal_input.as_u128() as f64 / 1e18,
+            recipe.get_revenue().as_u128() as f64 / 1e18
+        );
+
+        Ok(recipe)
     }
 }
 
@@ -198,11 +204,7 @@ impl<M: Middleware + 'static> SandoBot<M> {
 
             let optimal_sandwich = match self.is_sandwichable(ingredients, next_block.clone()).await
             {
-                Ok(s) => {
-                    println!("OKAY: {:?}", s);
-                    log_sandwichable!("{:?} {:?}", victim_tx.hash, s);
-                    recipes.push(s)
-                }
+                Ok(s) => recipes.push(s),
                 Err(e) => {
                     println!("ERR: {:?}", e);
                     log_not_sandwichable!("{:?} {:?}", victim_tx.hash, e)

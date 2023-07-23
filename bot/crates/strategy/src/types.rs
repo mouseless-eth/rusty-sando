@@ -3,7 +3,10 @@ use artemis_core::{
     collectors::block_collector::NewBlock, executors::flashbots_executor::FlashbotsBundle,
 };
 use cfmms::pool::Pool;
-use ethers::types::{Address, Block, Transaction, H256, U256, U64};
+use ethers::types::{
+    Address, Block, Bytes, Eip1559TransactionRequest, Transaction, H256, U256, U64,
+};
+use foundry_evm::executor::TxEnv;
 
 /// Core Event enum for current strategy
 #[derive(Debug, Clone)]
@@ -68,6 +71,20 @@ impl RawIngredients {
 
     pub fn get_target_pool(&self) -> Pool {
         self.target_pool
+    }
+
+    // Used for logging
+    pub fn print_meats(&self) -> String {
+        let mut s = String::new();
+        s.push('[');
+        for (i, x) in self.meats.iter().enumerate() {
+            s.push_str(&format!("{:?}", x.hash));
+            if i != self.meats.len() - 1 {
+                s.push_str(",");
+            }
+        }
+        s.push(']');
+        s
     }
 }
 
@@ -153,5 +170,39 @@ fn calculate_next_block_base_fee(block: &BlockInfo) -> U256 {
             current_base_fee_per_gas * gas_used_delta / current_gas_target / 8;
 
         return current_base_fee_per_gas - base_fee_per_gas_delta;
+    }
+}
+
+/// All details for capturing a sando opp
+pub struct SandoRecipe {
+    frontrun: TxEnv,
+    frontrun_gas_used: u64,
+    meats: Vec<Transaction>,
+    backrun: TxEnv,
+    backrun_gas_used: u64,
+    revenue: U256,
+}
+
+impl SandoRecipe {
+    pub fn new(
+        frontrun: TxEnv,
+        frontrun_gas_used: u64,
+        meats: Vec<Transaction>,
+        backrun: TxEnv,
+        backrun_gas_used: u64,
+        revenue: U256,
+    ) -> Self {
+        Self {
+            frontrun,
+            frontrun_gas_used,
+            meats,
+            backrun,
+            backrun_gas_used,
+            revenue,
+        }
+    }
+
+    pub fn get_revenue(&self) -> U256 {
+        self.revenue
     }
 }

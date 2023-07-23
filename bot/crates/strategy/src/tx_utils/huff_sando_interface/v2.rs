@@ -20,10 +20,8 @@ pub fn v2_create_frontrun_payload(
         "v2_frontrun1"
     });
 
-    let five_bytes = FiveByteMetaData::encode(
-        U256::from(amount_out),
-        if *WETH_ADDRESS < output_token { 1 } else { 0 },
-    );
+    let five_bytes =
+        FiveByteMetaData::encode(amount_out, if *WETH_ADDRESS < output_token { 1 } else { 0 });
 
     let (payload, _) = eth_encode_packed::abi::encode_packed(&[
         SolidityDataType::NumberWithShift(jump_dest.into(), TakeLastXBytes(8)),
@@ -49,7 +47,7 @@ pub fn v2_create_backrun_payload(
         "v2_backrun1"
     });
 
-    let five_bytes = FiveByteMetaData::encode(U256::from(amount_in), 1);
+    let five_bytes = FiveByteMetaData::encode(amount_in, 1);
 
     let (payload, _) = eth_encode_packed::abi::encode_packed(&[
         SolidityDataType::NumberWithShift(jump_dest.into(), TakeLastXBytes(8)),
