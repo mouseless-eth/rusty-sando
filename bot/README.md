@@ -57,7 +57,7 @@ cargo run --release
 ```
 > **Warning**
 >
-> **By taking this codebase into production, you are doing so at your own risk under the MIT license.** Although heavily tested, I cannot gurantee that it is bug free. I prefer this codebase to be used as a case study of what MEV could look like using Rust and Huff. 
+> **By taking this codebase into production, you are doing so at your own risk under the MIT license.** I prefer this codebase to be used as a case study of what MEV could look like using Rust and Huff. 
 
 ## Improvements
 
