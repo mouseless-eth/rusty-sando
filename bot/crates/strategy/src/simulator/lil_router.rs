@@ -12,8 +12,7 @@ use foundry_evm::{
 
 use crate::{
     constants::{
-        LIL_ROUTER_ADDRESS, LIL_ROUTER_CODE, LIL_ROUTER_CONTROLLER, ONE_ETHER_IN_WEI, WETH_ADDRESS,
-        WETH_FUND_AMT,
+        LIL_ROUTER_ADDRESS, LIL_ROUTER_CODE, LIL_ROUTER_CONTROLLER, WETH_ADDRESS, WETH_FUND_AMT,
     },
     tx_utils::lil_router_interface::{
         build_swap_v2_data, build_swap_v3_data, decode_swap_v2_result, decode_swap_v3_result,
@@ -195,7 +194,7 @@ async fn evaluate_sandwich_revenue(
 
     let result = match evm.transact_commit() {
         Ok(result) => result,
-        Err(e) => return Err(anyhow!("[lilRouter: EVM ERROR] Frontrun: {:?}", e)),
+        Err(e) => return Err(anyhow!("[lilRouter: EVM ERROR] frontrun: {:?}", e)),
     };
     let output = match result {
         ExecutionResult::Success { output, .. } => match output {
@@ -203,10 +202,10 @@ async fn evaluate_sandwich_revenue(
             Output::Create(o, _) => o,
         },
         ExecutionResult::Revert { output, .. } => {
-            return Err(anyhow!("[lilRouter: REVERT] Frontrun: {:?}", output))
+            return Err(anyhow!("[lilRouter: REVERT] frontrun: {:?}", output))
         }
         ExecutionResult::Halt { reason, .. } => {
-            return Err(anyhow!("[lilRouter: HALT] Frontrun: {:?}", reason))
+            return Err(anyhow!("[lilRouter: HALT] frontrun: {:?}", reason))
         }
     };
     let (_frontrun_out, backrun_in) = match ingredients.get_target_pool() {
@@ -214,7 +213,7 @@ async fn evaluate_sandwich_revenue(
             Ok(output) => output,
             Err(e) => {
                 return Err(anyhow!(
-                    "[lilRouter: FailedToDecodeOutput] Frontrun: {:?}",
+                    "[lilRouter: FailedToDecodeOutput] frontrun: {:?}",
                     e
                 ))
             }
@@ -273,7 +272,7 @@ async fn evaluate_sandwich_revenue(
 
     let result = match evm.transact_commit() {
         Ok(result) => result,
-        Err(e) => return Err(anyhow!("[lilRouter: EVM ERROR] Backrun: {:?}", e)),
+        Err(e) => return Err(anyhow!("[lilRouter: EVM ERROR] backrun: {:?}", e)),
     };
     let output = match result {
         ExecutionResult::Success { output, .. } => match output {
@@ -281,10 +280,10 @@ async fn evaluate_sandwich_revenue(
             Output::Create(o, _) => o,
         },
         ExecutionResult::Revert { output, .. } => {
-            return Err(anyhow!("[lilRouter: REVERT] Backrun: {:?}", output))
+            return Err(anyhow!("[lilRouter: REVERT] backrun: {:?}", output))
         }
         ExecutionResult::Halt { reason, .. } => {
-            return Err(anyhow!("[lilRouter: HALT] Backrun: {:?}", reason))
+            return Err(anyhow!("[lilRouter: HALT] backrun: {:?}", reason))
         }
     };
     let (_backrun_out, post_sandwich_balance) = match ingredients.get_target_pool() {

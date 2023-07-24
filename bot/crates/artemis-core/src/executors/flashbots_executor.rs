@@ -2,12 +2,10 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use async_trait::async_trait;
-use ethers::{
-    providers::Middleware, signers::Signer, types::transaction::eip2718::TypedTransaction,
-};
+use ethers::{providers::Middleware, signers::Signer};
 use ethers_flashbots::{BundleRequest, FlashbotsMiddleware};
 use reqwest::Url;
-use tracing::error;
+use tracing::{error, info};
 
 use crate::types::Executor;
 
@@ -15,21 +13,17 @@ use crate::types::Executor;
 pub struct FlashbotsExecutor<M, S> {
     /// The Flashbots middleware.
     fb_client: FlashbotsMiddleware<Arc<M>, S>,
-
-    /// The signer to sign transactions before sending to the relay.
-    tx_signer: S,
 }
 
 /// A bundle of transactions to send to the Flashbots relay.
-pub type FlashbotsBundle = Vec<TypedTransaction>;
+/// Sending vec of bundle request because multiple actions per event not supported
+/// See issue: https://github.com/paradigmxyz/artemis/issues/34
+pub type FlashbotsBundle = Vec<BundleRequest>;
 
 impl<M: Middleware, S: Signer> FlashbotsExecutor<M, S> {
-    pub fn new(client: Arc<M>, tx_signer: S, relay_signer: S, relay_url: impl Into<Url>) -> Self {
+    pub fn new(client: Arc<M>, relay_signer: S, relay_url: impl Into<Url>) -> Self {
         let fb_client = FlashbotsMiddleware::new(client, relay_url, relay_signer);
-        Self {
-            fb_client,
-            tx_signer,
-        }
+        Self { fb_client }
     }
 }
 
@@ -42,33 +36,22 @@ where
 {
     /// Send a bundle to transactions to the Flashbots relay.
     async fn execute(&self, action: FlashbotsBundle) -> Result<()> {
-        // Add txs to bundle.
-        let mut bundle = BundleRequest::new();
+        for bundle in action {
+            //// Simulate bundle.
+            //let simulated_bundle = self.fb_client.simulate_bundle(&bundle).await;
 
-        // Sign each transaction in bundle.
-        for tx in action {
-            let signature = self.tx_signer.sign_transaction(&tx).await?;
-            bundle.add_transaction(tx.rlp_signed(&signature));
-        }
+            //match simulated_bundle {
+            //    Ok(res) => info!("Simulation Result: {:?}", res),
+            //    Err(simulate_error) => error!("Error simulating bundle: {:?}", simulate_error),
+            //}
 
-        // Simulate bundle.
-        let block_number = self.fb_client.get_block_number().await?;
-        let bundle = bundle
-            .set_block(block_number + 1)
-            .set_simulation_block(block_number)
-            .set_simulation_timestamp(0);
+            // Send bundle.
+            let pending_bundle = self.fb_client.send_bundle(&bundle).await;
 
-        let simulated_bundle = self.fb_client.simulate_bundle(&bundle).await;
-
-        if let Err(simulate_error) = simulated_bundle {
-            error!("Error simulating bundle: {:?}", simulate_error);
-        }
-
-        // Send bundle.
-        let pending_bundle = self.fb_client.send_bundle(&bundle).await;
-
-        if let Err(send_error) = pending_bundle {
-            error!("Error sending bundle: {:?}", send_error);
+            match pending_bundle {
+                Ok(res) => info!("Simulation Result: {:?}", res.await),
+                Err(send_error) => error!("Error sending bundle: {:?}", send_error),
+            }
         }
 
         Ok(())

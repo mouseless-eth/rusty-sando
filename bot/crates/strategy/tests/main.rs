@@ -20,14 +20,12 @@ pub static WETH_ADDRESS: Lazy<Address> = Lazy::new(|| {
 });
 
 // -- utils --
-
 fn setup_logger() {
-    fern::Dispatch::new()
+    let _ = fern::Dispatch::new()
         .level(log::LevelFilter::Error)
         .level_for("strategy", log::LevelFilter::Info)
         .chain(std::io::stdout())
-        .apply()
-        .unwrap();
+        .apply();
 }
 
 async fn setup_bot(provider: Arc<Provider<Ws>>) -> SandoBot<Provider<Ws>> {
@@ -38,8 +36,7 @@ async fn setup_bot(provider: Arc<Provider<Ws>>) -> SandoBot<Provider<Ws>> {
             .parse()
             .unwrap(),
         sando_inception_block: U64::from(17700000),
-        // wallet from privatekey 0x1
-        searcher_signer: "0x7E5F4552091A69125d5DfCb7b8C2659029395Bdf"
+        searcher_signer: "0x0000000000000000000000000000000000000000000000000000000000000001"
             .parse()
             .unwrap(),
     };
@@ -126,6 +123,39 @@ async fn can_sandwich_sushi_swap() {
     );
 
     let target_block = block_num_to_info(16873148, client.clone()).await;
+
+    let _ = bot
+        .is_sandwichable(ingredients, target_block)
+        .await
+        .unwrap();
+}
+
+/// testing against: https://eigenphi.io/mev/ethereum/tx/0xc132e351e8c7d3d8763a894512bd8a33e4ca60f56c0516f7a6cafd3128bd59bb
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn can_sandwich_multi_v2_swaps() {
+    let client = Arc::new(Provider::new(Ws::connect(WSS_RPC).await.unwrap()));
+
+    let bot = setup_bot(client.clone()).await;
+
+    let ingredients = RawIngredients::new(
+        vec![
+            victim_tx_hash(
+                "0x4791d05bdd6765f036ff4ae44fc27099997417e3bdb053ecb52182bbfc7767c5",
+                client.clone(),
+            )
+            .await,
+            victim_tx_hash(
+                "0x923c9ba97fea8d72e60c14d1cc360a8e7d99dd4b31274928d6a79704a8546eda",
+                client.clone(),
+            )
+            .await,
+        ],
+        *WETH_ADDRESS,
+        hex_to_address("0x31b16Ff7823096a227Aac78F1C094525A84ab64F"),
+        hex_to_univ2_pool("0x657c6a08d49B4F0778f9cce1Dc49d196cFCe9d08", client.clone()).await,
+    );
+
+    let target_block = block_num_to_info(16780625, client.clone()).await;
 
     let _ = bot
         .is_sandwichable(ingredients, target_block)

@@ -39,6 +39,3 @@ colored = "2.0.0"
 # artemis related
 artemis-core = { path = "../crates/artemis-core"}
 strategy = { path = "../crates/strategy" }
-
-[profile.release]
-debug = true

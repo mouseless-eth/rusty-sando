@@ -1,8 +1,7 @@
 use foundry_evm::{
-    executor::{InstructionResult, B160},
+    executor::InstructionResult,
     revm::{
-        interpreter::{opcode, CallInputs, CreateInputs, Gas, Interpreter},
-        primitives::Bytes,
+        interpreter::{opcode, Interpreter},
         Database, EVMData, Inspector,
     },
 };
@@ -75,15 +74,6 @@ impl SalmonellaInspectoooor {
 }
 
 impl<DB: Database> Inspector<DB> for SalmonellaInspectoooor {
-    fn initialize_interp(
-        &mut self,
-        _interp: &mut Interpreter,
-        _data: &mut EVMData<'_, DB>,
-        _is_static: bool,
-    ) -> InstructionResult {
-        InstructionResult::Continue
-    }
-
     // get opcode by calling `interp.contract.opcode(interp.program_counter())`.
     // all other information can be obtained from interp.
     fn step(
@@ -128,48 +118,5 @@ impl<DB: Database> Inspector<DB> for SalmonellaInspectoooor {
         }
 
         InstructionResult::Continue
-    }
-
-    fn step_end(
-        &mut self,
-        _interp: &mut Interpreter,
-        _data: &mut EVMData<'_, DB>,
-        _is_static: bool,
-        _eval: InstructionResult,
-    ) -> InstructionResult {
-        InstructionResult::Continue
-    }
-
-    fn call(
-        &mut self,
-        _data: &mut EVMData<'_, DB>,
-        _inputs: &mut CallInputs,
-        _is_static: bool,
-    ) -> (InstructionResult, Gas, Bytes) {
-        (InstructionResult::Continue, Gas::new(0), Bytes::new())
-    }
-
-    fn call_end(
-        &mut self,
-        _data: &mut EVMData<'_, DB>,
-        _inputs: &CallInputs,
-        remaining_gas: Gas,
-        ret: InstructionResult,
-        out: Bytes,
-        _is_static: bool,
-    ) -> (InstructionResult, Gas, Bytes) {
-        (ret, remaining_gas, out)
-    }
-
-    fn create_end(
-        &mut self,
-        _data: &mut EVMData<'_, DB>,
-        _inputs: &CreateInputs,
-        ret: InstructionResult,
-        address: Option<B160>,
-        remaining_gas: Gas,
-        out: Bytes,
-    ) -> (InstructionResult, Option<B160>, Gas, Bytes) {
-        (ret, address, remaining_gas, out)
     }
 }

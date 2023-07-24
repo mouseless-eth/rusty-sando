@@ -2,7 +2,7 @@ use anyhow::{anyhow, Result};
 use colored::Colorize;
 use ethers::{
     providers::Middleware,
-    signers::LocalWallet,
+    signers::{LocalWallet, Signer},
     types::{Address, BlockNumber, Filter, U256, U64},
 };
 use log::info;
@@ -17,7 +17,7 @@ use crate::{
 pub struct SandoStateManager {
     sando_contract: Address,
     sando_inception_block: U64,
-    searcher: Address,
+    searcher_signer: LocalWallet,
     weth_inventory: U256,
     token_dust: Vec<Address>,
 }
@@ -25,13 +25,13 @@ pub struct SandoStateManager {
 impl SandoStateManager {
     pub fn new(
         sando_contract: Address,
-        searcher_signer: Address,
+        searcher_signer: LocalWallet,
         sando_inception_block: U64,
     ) -> Self {
         Self {
             sando_contract,
             sando_inception_block,
-            searcher: searcher_signer,
+            searcher_signer,
             weth_inventory: Default::default(),
             token_dust: Default::default(),
         }
@@ -90,8 +90,12 @@ impl SandoStateManager {
         self.sando_contract
     }
 
-    pub fn get_searcher(&self) -> Address {
-        self.searcher
+    pub fn get_searcher_address(&self) -> Address {
+        self.searcher_signer.address()
+    }
+
+    pub fn get_searcher_signer(&self) -> &LocalWallet {
+        &self.searcher_signer
     }
 
     pub fn get_weth_inventory(&self) -> U256 {

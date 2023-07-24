@@ -88,7 +88,7 @@ impl<M: Middleware + 'static> SandoBot<M> {
             &target_block,
             optimal_input,
             weth_inventory,
-            self.sando_state_manager.get_searcher(),
+            self.sando_state_manager.get_searcher_address(),
             self.sando_state_manager.get_sando_address(),
             shared_backend,
         )?;
@@ -171,8 +171,7 @@ impl<M: Middleware + 'static> SandoBot<M> {
             return None;
         }
 
-        // list of sandwiches that this victim tx produces
-        let mut recipes = vec![];
+        let mut sando_bundles = vec![];
 
         for pool in touched_pools {
             let (token_a, token_b) = match pool {
@@ -202,16 +201,35 @@ impl<M: Middleware + 'static> SandoBot<M> {
                 pool,
             );
 
-            let optimal_sandwich = match self.is_sandwichable(ingredients, next_block.clone()).await
-            {
-                Ok(s) => recipes.push(s),
+            match self.is_sandwichable(ingredients, next_block.clone()).await {
+                Ok(s) => {
+                    let _bundle = match s
+                        .to_fb_bundle(
+                            self.sando_state_manager.get_sando_address(),
+                            self.sando_state_manager.get_searcher_signer(),
+                            false,
+                            self.provider.clone(),
+                        )
+                        .await
+                    {
+                        Ok(b) => b,
+                        Err(e) => {
+                            log_not_sandwichable!("{:?}", e);
+                            continue;
+                        }
+                    };
+
+                    #[cfg(not(feature = "debug"))]
+                    {
+                        sando_bundles.push(_bundle);
+                    }
+                }
                 Err(e) => {
-                    println!("ERR: {:?}", e);
                     log_not_sandwichable!("{:?} {:?}", victim_tx.hash, e)
                 }
             };
         }
 
-        None
+        Some(Action::SubmitToFlashbots(sando_bundles))
     }
 }

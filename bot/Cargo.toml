@@ -4,5 +4,3 @@ members = [
     "crates/strategy",
     "sando-bin"
 ]
-
-default-member = "sando-bin"

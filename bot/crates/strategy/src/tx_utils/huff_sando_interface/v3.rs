@@ -24,7 +24,7 @@ pub fn v3_create_frontrun_payload(
                 "v3_frontrun1"
             })
             .into(),
-            TakeLastXBytes(4),
+            TakeLastXBytes(8),
         ),
         SolidityDataType::Address(pool.address().0.into()),
         SolidityDataType::Bytes(&get_pool_key_hash(pool).to_vec()),
@@ -50,7 +50,7 @@ pub fn v3_create_backrun_payload(
                 "v3_backrun1"
             })
             .into(),
-            TakeLastXBytes(4),
+            TakeLastXBytes(8),
         ),
         SolidityDataType::Address(pool.address().0.into()),
         SolidityDataType::Address(input_token.0.into()),

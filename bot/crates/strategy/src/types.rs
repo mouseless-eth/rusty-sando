@@ -1,12 +1,23 @@
-use anyhow::anyhow;
+use std::sync::Arc;
+
+use anyhow::ensure;
+use anyhow::{anyhow, Result};
 use artemis_core::{
     collectors::block_collector::NewBlock, executors::flashbots_executor::FlashbotsBundle,
 };
 use cfmms::pool::Pool;
+use ethers::providers::Middleware;
+use ethers::signers::LocalWallet;
+use ethers::signers::Signer;
 use ethers::types::{
     Address, Block, Bytes, Eip1559TransactionRequest, Transaction, H256, U256, U64,
 };
+use ethers_flashbots::BundleRequest;
 use foundry_evm::executor::TxEnv;
+
+use crate::constants::DUST_OVERPAY;
+use crate::helpers::access_list_to_ethers;
+use crate::helpers::sign_eip1559;
 
 /// Core Event enum for current strategy
 #[derive(Debug, Clone)]
@@ -26,7 +37,7 @@ pub enum Action {
 pub struct StratConfig {
     pub sando_address: Address,
     pub sando_inception_block: U64,
-    pub searcher_signer: Address,
+    pub searcher_signer: LocalWallet,
 }
 
 /// Information on potential sandwichable opportunity
@@ -181,6 +192,7 @@ pub struct SandoRecipe {
     backrun: TxEnv,
     backrun_gas_used: u64,
     revenue: U256,
+    target_block: BlockInfo,
 }
 
 impl SandoRecipe {
@@ -191,6 +203,7 @@ impl SandoRecipe {
         backrun: TxEnv,
         backrun_gas_used: u64,
         revenue: U256,
+        target_block: BlockInfo,
     ) -> Self {
         Self {
             frontrun,
@@ -199,10 +212,99 @@ impl SandoRecipe {
             backrun,
             backrun_gas_used,
             revenue,
+            target_block,
         }
     }
 
     pub fn get_revenue(&self) -> U256 {
         self.revenue
+    }
+
+    /// turn recipe into a signed bundle that can be sumbitted to flashbots
+    pub async fn to_fb_bundle<M: Middleware>(
+        self,
+        sando_address: Address,
+        searcher: &LocalWallet,
+        has_dust: bool,
+        provider: Arc<M>,
+    ) -> Result<BundleRequest> {
+        let nonce = provider
+            .get_transaction_count(searcher.address(), Some(self.target_block.number.into()))
+            .await
+            .map_err(|e| anyhow!("FAILED TO CREATE BUNDLE: Failed to get nonce {:?}", e))?;
+
+        let frontrun_tx = Eip1559TransactionRequest {
+            to: Some(sando_address.into()),
+            gas: Some((U256::from(self.frontrun_gas_used) * 10) / 7),
+            value: Some(self.frontrun.value.into()),
+            data: Some(self.frontrun.data.into()),
+            nonce: Some(nonce),
+            access_list: access_list_to_ethers(self.frontrun.access_list),
+            max_fee_per_gas: Some(self.target_block.base_fee_per_gas.into()),
+            ..Default::default()
+        };
+        let signed_frontrun = sign_eip1559(frontrun_tx, &searcher).await?;
+
+        let signed_meat_txs: Vec<Bytes> = self.meats.into_iter().map(|meat| meat.rlp()).collect();
+
+        // calc bribe (bribes paid in backrun)
+        let revenue_minus_frontrun_tx_fee = self
+            .revenue
+            .checked_sub(U256::from(self.frontrun_gas_used) * self.target_block.base_fee_per_gas)
+            .ok_or_else(|| {
+                anyhow!("[FAILED TO CREATE BUNDLE] revenue doesn't cover frontrun basefee")
+            })?;
+
+        // eat a loss (overpay) to get dust onto the sando contract (more: https://twitter.com/libevm/status/1474870661373779969)
+        let bribe_amount = if !has_dust {
+            revenue_minus_frontrun_tx_fee + *DUST_OVERPAY
+        } else {
+            // bribe away 99.9999999% of revenue lmeow
+            revenue_minus_frontrun_tx_fee * 999999999 / 1000000000
+        };
+
+        let max_fee = bribe_amount / self.backrun_gas_used;
+
+        ensure!(
+            max_fee >= self.target_block.base_fee_per_gas,
+            "[FAILED TO CREATE BUNDLE] backrun maxfee less than basefee"
+        );
+
+        let effective_miner_tip = max_fee.checked_sub(self.target_block.base_fee_per_gas);
+
+        ensure!(
+            effective_miner_tip.is_none(),
+            "[FAILED TO CREATE BUNDLE] negative miner tip"
+        );
+
+        let backrun_tx = Eip1559TransactionRequest {
+            to: Some(sando_address.into()),
+            gas: Some((U256::from(self.backrun_gas_used) * 10) / 7),
+            value: Some(self.backrun.value.into()),
+            data: Some(self.backrun.data.into()),
+            nonce: Some(nonce),
+            access_list: access_list_to_ethers(self.backrun.access_list),
+            max_priority_fee_per_gas: Some(max_fee),
+            max_fee_per_gas: Some(max_fee),
+            ..Default::default()
+        };
+        let signed_backrun = sign_eip1559(backrun_tx, &searcher).await?;
+
+        // construct bundle
+        let mut bundled_transactions: Vec<Bytes> = vec![signed_frontrun];
+        bundled_transactions.append(&mut signed_meat_txs.clone());
+        bundled_transactions.push(signed_backrun);
+
+        let mut bundle_request = BundleRequest::new();
+        for tx in bundled_transactions {
+            bundle_request = bundle_request.push_transaction(tx);
+        }
+
+        bundle_request = bundle_request
+            .set_block(self.target_block.number)
+            .set_simulation_block(self.target_block.number - 1)
+            .set_simulation_timestamp(self.target_block.timestamp.as_u64());
+
+        Ok(bundle_request)
     }
 }

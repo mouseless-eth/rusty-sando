@@ -1,6 +1,6 @@
 use ethers::{
     prelude::Lazy,
-    types::{Address, Bytes, H256},
+    types::{Address, Bytes, H256, U256},
 };
 use foundry_evm::revm::primitives::{B160 as rAddress, U256 as rU256};
 
@@ -56,3 +56,5 @@ pub static COINBASE: Lazy<rAddress> = Lazy::new(|| {
         .parse()
         .unwrap()
 });
+
+pub static DUST_OVERPAY: Lazy<U256> = Lazy::new(|| ethers::utils::parse_ether("0.00015").unwrap());

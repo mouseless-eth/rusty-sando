@@ -14,9 +14,9 @@ use foundry_evm::revm::{
     primitives::{Address as rAddress, U256 as rU256},
     EVM,
 };
-use foundry_evm::utils::{h160_to_b160, u256_to_ru256};
 
 use crate::constants::{GET_RESERVES_SIG, SUGAR_DADDY, WETH_ADDRESS};
+use crate::helpers::access_list_to_revm;
 use crate::simulator::setup_block_state;
 use crate::tx_utils::huff_sando_interface::common::five_byte_encoder::FiveByteMetaData;
 use crate::tx_utils::huff_sando_interface::{
@@ -109,22 +109,10 @@ pub fn create_recipe(
         get_precompiles_for(evm.env.cfg.spec_id),
     );
     evm.inspect_ref(&mut access_list_inspector)
-        .map_err(|e| anyhow!("[EVM ERROR] sando frontrun: {:?}", (e)))?;
+        .map_err(|e| anyhow!("[EVM ERROR] frontrun: {:?}", (e)))?;
     let frontrun_access_list = access_list_inspector.access_list();
 
-    frontrun_tx_env.access_list = frontrun_access_list
-        .0
-        .into_iter()
-        .map(|x| {
-            (
-                h160_to_b160(x.address),
-                x.storage_keys
-                    .into_iter()
-                    .map(|y| u256_to_ru256(y.0.into()))
-                    .collect(),
-            )
-        })
-        .collect();
+    frontrun_tx_env.access_list = access_list_to_revm(frontrun_access_list);
     evm.env.tx = frontrun_tx_env.clone();
 
     // run again but now with access list (so that we get accurate gas used)
@@ -166,7 +154,7 @@ pub fn create_recipe(
         evm.env.tx.data = meat.input.0.clone();
         evm.env.tx.value = meat.value.into();
         evm.env.tx.chain_id = meat.chain_id.map(|id| id.as_u64());
-        evm.env.tx.nonce = Some(meat.nonce.as_u64());
+        //evm.env.tx.nonce = Some(meat.nonce.as_u64());
         evm.env.tx.gas_limit = meat.gas.as_u64();
         match meat.transaction_type {
             Some(ethers::types::U64([0])) => {
@@ -188,7 +176,7 @@ pub fn create_recipe(
         // remove reverted meats because mempool tx/s gas costs are accounted for by fb
         let res = match evm.transact_commit() {
             Ok(result) => result,
-            Err(e) => return Err(anyhow!("[huffsando: EVM ERROR] {:?}", e)),
+            Err(e) => return Err(anyhow!("[huffsando: EVM ERROR] meat: {:?}", e)),
         };
         match res.is_success() {
             true => is_meat_good.push(true),
@@ -258,22 +246,10 @@ pub fn create_recipe(
         get_precompiles_for(evm.env.cfg.spec_id),
     );
     evm.inspect_ref(&mut access_list_inspector)
-        .map_err(|e| anyhow!("[huffsando: EVM ERROR] sando frontrun: {:?}", e))
+        .map_err(|e| anyhow!("[huffsando: EVM ERROR] frontrun: {:?}", e))
         .unwrap();
     let backrun_access_list = access_list_inspector.access_list();
-    backrun_tx_env.access_list = backrun_access_list
-        .0
-        .into_iter()
-        .map(|x| {
-            (
-                h160_to_b160(x.address),
-                x.storage_keys
-                    .into_iter()
-                    .map(|y| u256_to_ru256(y.0.into()))
-                    .collect(),
-            )
-        })
-        .collect();
+    backrun_tx_env.access_list = access_list_to_revm(backrun_access_list);
     evm.env.tx = backrun_tx_env.clone();
 
     // run again but now with access list (so that we get accurate gas used)
@@ -281,7 +257,7 @@ pub fn create_recipe(
     let mut salmonella_inspector = SalmonellaInspectoooor::new();
     let backrun_result = match evm.inspect_commit(&mut salmonella_inspector) {
         Ok(result) => result,
-        Err(e) => return Err(anyhow!("[huffsando: EVM ERROR] sando backrun: {:?}", e)),
+        Err(e) => return Err(anyhow!("[huffsando: EVM ERROR] backrun: {:?}", e)),
     };
     match backrun_result {
         ExecutionResult::Success { .. } => { /* continue */ }
@@ -330,6 +306,7 @@ pub fn create_recipe(
         backrun_tx_env,
         backrun_gas_used,
         revenue,
+        *next_block,
     ))
 }
 
@@ -460,7 +437,7 @@ pub fn v2_get_amount_out(
     Ok(amount_out)
 }
 
-//#[cfg(feature = "debug")]
+#[cfg(feature = "debug")]
 fn inject_huff_sando(
     db: &mut CacheDB<SharedBackend>,
     huff_sando_addy: foundry_evm::executor::B160,
