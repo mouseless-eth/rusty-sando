@@ -45,38 +45,6 @@ We use byte shifts instead of bitshifts because we perform a byteshift by storin
 
 To optimize further, instead of encoding the byteshift into our calldata, we encode the offset in memory such that when the 4bytes are stored, it will be N bytes from the left of its storage slot. [more details](https://github.com/mouseless-eth/rusty-sando/blob/1a0f775a00ae932f64d7e926605134892fcf56f9/contract/test/misc/V2SandoUtility.sol#L28).
 
-/* sando MEMORY DUMP for when we call otherToken's `transfer(to,amount)`
-0x00: 0x0000000000000000000000000000000000000000000000000000000000000000
-0x20: 0x00000000????????????????????????????????????????????????????????
-0x40: 0x????????00000000000000000000000000000000000000000000000000000000
-...
-
-second param of `transer(to,amount)` takes up the region marked with `?`,
-meaning that to find byteshift, we subtract from memory slot 0x44 (68 in dec)
-*/
-
-/* sando MEMORY DUMP for when we call pool's `swap(amount0Out,amount1Out,to,bytes)` method
-0x00: 0x0000000000000000000000000000000000000000000000000000000000000000
-0x20: 0x00000000????????????????????????????????????????????????????????
-0x40: 0x????????00000000000000000000000000000000000000000000000000000000
-0x60: 0x0000000000000000000000000000000000000000000000000000000000000000
-...
-
-weth is token0, otherToken is token1, so otherToken amountOut takes up the region marked with `?` (amount1Out).
-meaning that to find byteshift, we subtract from memory slot 0x44 (68 in dec)
-*/
-
-/* sando MEMORY DUMP for when we call pool's `swap(amount0Out,amount1Out,to,bytes)` method
-0x00: 0x0000000?????????????????????????????????????????????????????????
-0x20: 0x???????000000000000000000000000000000000000000000000000000000000
-0x40: 0x0000000000000000000000000000000000000000000000000000000000000000
-0x60: 0x0000000000000000000000000000000000000000000000000000000000000000
-...
-
-weth is token1, otherToken is token0, so otherToken amountOut takes up the region marked with `?` (amount0Out).
-meaning that to find byteshift, we subtract from memory slot 0x24 (36 in dec)
-*/
-
 ### Hardcoded values
 Weth address is hardcoded into the contract and there are individual methods to handle when Weth is token0 or token1.
 
@@ -149,7 +117,6 @@ All calldata is encoded by packing the values together.
 > PairAddress can be omitted from calldata because it can be derived from PoolKeyHash
 
 ## Running Tests
-
 ```console
 forge install
 forge test
