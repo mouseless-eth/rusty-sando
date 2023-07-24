@@ -3,7 +3,7 @@ A practical example on how to perform V2/V3 and multi-meat sandwich attacks writ
 
 The goal of this repo is to act as reference material for aspiring searchers. 
 
-> **This codebase has been cleaned up and rewritten to make use of the [`Artemis`](https://github.com/paradigmxyz/artemis) framework.**
+> **This codebase has been cleaned up and rewritten using the [`Artemis`](https://github.com/paradigmxyz/artemis) framework.**
 
 ## Demo
 https://user-images.githubusercontent.com/97399882/226269539-afedced0-e070-4d12-9853-dfbafbcefa49.mp4
