@@ -1,41 +1,6 @@
-[package]
-name = "rusty-sando"
-version = "0.1.0"
-edition = "2021"
-license = "MIT"
-description = "Optimized sandwich bot written using Rust and Huff"
-readme = "README.md"
-homepage = "https://github.com/mouseless-eth/rusty-sando"
-repository = "https://github.com/mouseless-eth/rusty-sando"
-keywords = ["Ethereum", "Mev", "Dex", "Sandwich"]
-authors = ["0xmouseless <https://github.com/mouseless-eth>"]
-
-[dependencies]
-ethers-flashbots = { git = "https://github.com/onbjerg/ethers-flashbots" }
-ethers = {version = "2.0.0", features = ["abigen", "ws"]}
-revm = {version = "3.0.0", features = ["ethersdb", "serde", "std"]}
-dotenv = "0.15.0"
-hashbrown = "0.14.0"
-tokio = { version = "1", features = ["full"] }
-log = "0.4.17"
-url = "2.3.1"
-dashmap = "5.4.0"
-async-recursion = "1.0.2"
-hex = "0.4.3"
-serde = "1.0.145"
-eyre = "0.6.8"
-reqwest = "0.11.12"
-time = "*"
-indoc = "2"
-indicatif = "0.17.1"
-thiserror = "1.0.37"
-fern = {version = "0.6", features = ["colored"]}
-chrono = "0.4.23"
-futures = "0.3.5"
-colored = "2.0.0"
-
-[profile.release]
-debug = true
-
-[dev-dependencies]
-tokio-test = "*"
+[workspace]
+members = [
+    "crates/artemis-core",
+    "crates/strategy",
+    "sando-bin"
+]

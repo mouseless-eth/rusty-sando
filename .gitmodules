@@ -1,24 +1,9 @@
 [submodule "contract/lib/forge-std"]
 	path = contract/lib/forge-std
 	url = https://github.com/foundry-rs/forge-std
-[submodule "SandwichV4/lib/v3-core"]
-	path = SandwichV4/lib/v3-core
-	url = https://github.com/Uniswap/v3-core
-[submodule "lib/v3-core"]
-	branch = v1.0.0
-[submodule "SandwichV4/lib/v2-core"]
-	path = SandwichV4/lib/v2-core
-	url = https://github.com/Uniswap/v2-core
-[submodule "lib/v2-core"]
-	branch = v1.0.1
-[submodule "SandwichV4/lib/v2-periphery"]
-	path = SandwichV4/lib/v2-periphery
-	url = https://github.com/Uniswap/v2-periphery
 [submodule "contract/lib/foundry-huff"]
 	path = contract/lib/foundry-huff
 	url = https://github.com/huff-language/foundry-huff
-[submodule "lib/forge-std"]
-	branch = v1.5.2
 [submodule "contract/lib/v3-core"]
 	path = contract/lib/v3-core
 	url = https://github.com/Uniswap/v3-core
@@ -28,3 +13,9 @@
 [submodule "contract/lib/v2-periphery"]
 	path = contract/lib/v2-periphery
 	url = https://github.com/Uniswap/v2-periphery
+[submodule "contract/lib/solmate"]
+	path = contract/lib/solmate
+	url = https://github.com/transmissions11/solmate
+[submodule "contract/lib/v3-periphery"]
+	path = contract/lib/v3-periphery
+	url = https://github.com/Uniswap/v3-periphery
