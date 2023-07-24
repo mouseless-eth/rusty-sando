@@ -1,7 +1,9 @@
-# Rusty-Sando ![license](https://img.shields.io/badge/License-MIT-green.svg?label=license) ![twitter](https://img.shields.io/twitter/follow/0xMouseless?style=social)
+# Rusty-Sando (re-write) ![license](https://img.shields.io/badge/License-MIT-green.svg?label=license) ![twitter](https://img.shields.io/twitter/follow/0xMouseless?style=social)
 A practical example on how to perform V2/V3 and multi-meat sandwich attacks written using Rust and Huff.
 
 The goal of this repo is to act as reference material for aspiring searchers. 
+
+> **This codebase has been cleaned up and rewritten to make use of the [`Artemis`](https://github.com/paradigmxyz/artemis) framework.**
 
 ## Demo
 https://user-images.githubusercontent.com/97399882/226269539-afedced0-e070-4d12-9853-dfbafbcefa49.mp4
@@ -13,7 +15,6 @@ Anytime that a transaction interacts with a Uniswap V2/V3 pool and its forks, th
 
 **Contract Logic Breakdown** can be found under [contract/README.md](https://github.com/mouseless-eth/rusty-sando/tree/master/contract)
 
-
 ## Features
 - **Fully Generalized**: Sandwich any tx that introduces slippage.
 - **V2 and V3 Logic**: Logic to handle Uniswap V2/V3 pools.
@@ -22,7 +23,6 @@ Anytime that a transaction interacts with a Uniswap V2/V3 pool and its forks, th
 - **Local Simulations**: Fast concurrent EVM simulations to find sandwich opportunities. 
 - **Token Dust**: Stores dust at the end of every bundle for lower gas usage the next time the token is traded. 
 - **Salmonella Checks**: Detect if erc20's transfer function uses any unusual opcodes that may produce different mainnet results.
-
 
 ## Notice
 If any bugs or optimizations are found, feel free to create a pull request. **All pull requests are welcome!** 
