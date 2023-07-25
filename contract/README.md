@@ -43,7 +43,7 @@ When dealing with the other token amount, the values can range significantly dep
 
 We use byte shifts instead of bitshifts because we perform a byteshift by storing the 4bytes in memory N bytes to the left of its memory slot.
 
-To optimize further, instead of encoding the byteshift into our calldata, we encode the offset in memory such that when the 4bytes are stored, it will be N bytes from the left of its storage slot. [more details](https://github.com/mouseless-eth/rusty-sando/blob/1a0f775a00ae932f64d7e926605134892fcf56f9/contract/test/misc/V2SandoUtility.sol#L28).
+To optimize further, instead of encoding the byteshift into our calldata, we encode the offset in memory such that when the 4bytes are stored, it will be N bytes from the left of its storage slot. [more details](https://github.com/mouseless-eth/rusty-sando/blob/3b17b30340f6ef3558be5e505e55a1eb2fe8ca36/contract/test/misc/SandoCommon.sol#L11).
 
 ### Hardcoded values
 Weth address is hardcoded into the contract and there are individual methods to handle when Weth is token0 or token1.
