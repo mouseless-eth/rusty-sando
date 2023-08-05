@@ -71,6 +71,9 @@ This repo explores only basic and simple multi V2 and V3 sandwiches, however, sa
 - Sandwiches that include a user's token approval tx + swap tx in one bundle.
 - Sandwiches that include a user's pending tx/s + swap tx in one bundle if swap tx nonce is higher than pending tx.
 
+## Recommendations and Tools
+
+It's recommended to run a consensus client. A reliable option is [Lighthouse](https://github.com/sigp/lighthouse), a security-first, open-source Ethereum 2.0 client built by Sigma Prime.
 
 ## FAQ
 
