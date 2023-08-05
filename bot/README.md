@@ -1,8 +1,8 @@
 # Rusty-Sando/Bot ![license](https://img.shields.io/badge/License-MIT-green.svg?label=license)
 
-Bot logic relies heavily on REVM simulations to detect sandwichable transactions. The simulations are done by injecting a modified router contract called [`LilRouter.sol`](https://github.com/mouseless-eth/rusty-sando/blob/master/contract/src/LilRouter.sol) into a new EVM instance. Once injected, a concurrent binary search is performed to find an optimal input amount that results in the highest revenue. After sandwich calculations, the bot performs a [salmonella](https://github.com/Defi-Cartel/salmonella) check. If the sandwich is salmonella free, the bot then calculates gas bribes and sends the bundle to the fb relay. 
+Bot logic relies heavily on REVM simulations to detect sandwichable transactions. The simulations are done by injecting a modified router contract called [`LilRouter.sol`](https://github.com/mouseless-eth/rusty-sando/blob/master/contract/src/LilRouter.sol) into a new EVM instance. Once injected, a concurrent binary search is performed to find an optimal input amount that results in the highest revenue. After sandwich calculations, the bot performs a [salmonella](https://github.com/Defi-Cartel/salmonella) check. If the sandwich is salmonella free, the bot then calculates gas bribes and sends the bundle to the fb relay.
 
-Performing EVM simulations in this way allows the bot to detect sandwichable opportunities against any tx that introduces slippage. 
+Performing EVM simulations in this way allows the bot to detect sandwichable opportunities against any tx that introduces slippage.
 
 ## Logic Breakdown
 - At startup, index all pools from a specific factory by parsing the `PairCreated` event. And fetch all token dust stored on sando addy.
@@ -12,13 +12,13 @@ Performing EVM simulations in this way allows the bot to detect sandwichable opp
 - For each pool that tx touches:
   - Find the optimal amount in for a sandwich attack by performing a concurrent binary search.
   - Check for salmonella by checking if tx uses unconventional opcodes.
-- If profitable after gas calculations, send the sando bundle to relays. 
+- If profitable after gas calculations, send the sando bundle to relays.
 
 ## Usage
 
-1. This repo requires you to run an [Erigon](https://github.com/ledgerwatch/erigon) archive node. The bot relies on the `newPendingTransactionsWithBody` subscription rpc endpoint which is a Erigon specific method. The node needs to be synced in archive mode to index all pools. 
+1. This repo requires you to run an [Erigon](https://github.com/ledgerwatch/erigon) archive node. The bot relies on the `newPendingTransactionsWithBody` subscription rpc endpoint which is a Erigon specific method. The node needs to be synced in archive mode to index all pools.
 
-2. [Install Rust](https://www.rust-lang.org/tools/install) if you haven't already. 
+2. [Install Rust](https://www.rust-lang.org/tools/install) if you haven't already.
 
 3. Fill in the searcher address in Huff contract and deploy either straight onchain or via create2 using a [metamorphic](https://github.com/0age/metamorphic) like factory.
 > If you are using create2, you can easily mine for an address containing 7 zero bytes, saving 84 gas of calldata every time the contract address is used as an argument. [read more](https://medium.com/coinmonks/deploy-an-efficient-address-contract-a-walkthrough-cb4be4ffbc70).
@@ -57,7 +57,7 @@ cargo run --release
 ```
 > **Warning**
 >
-> **By taking this codebase into production, you are doing so at your own risk under the MIT license.** I prefer this codebase to be used as a case study of what MEV could look like using Rust and Huff. 
+> **By taking this codebase into production, you are doing so at your own risk under the MIT license.** I prefer this codebase to be used as a case study of what MEV could look like using Rust and Huff.
 
 ## Improvements
 
@@ -68,5 +68,20 @@ This repo explores only basic and simple multi V2 and V3 sandwiches, however, sa
 - Multi-meat sandwiches that target more than one pool. example: [frontrun](https://etherscan.io/tx/0xa39d28624f6d18a3bd5f5289a70fdc2779782f9a2e2c36dddd95cf882a15da45), [meat1](https://etherscan.io/tx/0xd027b771da68544279262439fd3f1cdef6a438ab6219b510c73c033b4e377296), [meat2](https://etherscan.io/tx/0x288da393cb7c937b8fe29ce0013992063d252372da869e31c6aad689f8b1aaf3), [backrun](https://etherscan.io/tx/0xcf22f2a3c9c67d56282e77e60c09929e0451336a9ed38f037fd484ea29e3cd41).
 - Token -> Weth sandwiches by using a 'flashswap' between two pools. Normally we can only sandwich Weth -> Token swaps as the bot has Weth inventory, however you can use another pool's reserves as inventory to sandwich swaps in the other direction. [example](https://eigenphi.io/mev/ethereum/tx/0x502b66ce1a8b71098decc3585c651745c1af55de19e8f29ec6fff4ed2fcd1589).
 - Longtail sandwiches to target TOKEN->(WETH or STABLE) swaps by pre buying and holding token.
-- Sandwiches that include a user's token approval tx + swap tx in one bundle. 
-- Sandwiches that include a user's pending tx/s + swap tx in one bundle if swap tx nonce is higher than pending tx. 
+- Sandwiches that include a user's token approval tx + swap tx in one bundle.
+- Sandwiches that include a user's pending tx/s + swap tx in one bundle if swap tx nonce is higher than pending tx.
+
+
+## FAQ
+
+### What is the FLASHBOTS_AUTH_KEY?
+
+The `FLASHBOTS_AUTH_KEY` is utilized as a method to track your representation with Flashbots. If you are setting up for the first time, refer to [MetaMask's guide on creating an additional account](https://support.metamask.io/hc/en-us/articles/360015289452-How-to-create-an-additional-account-in-your-wallet) in your wallet. The `FLASHBOTS_AUTH_KEY` is any private key. It's recommended to generate a new one from MetaMask or a similar service, and use an unfunded one. This key is used to establish your reputation on Flashbots.
+
+### What is the SEARCHER_PRIVATE_KEY?
+
+The `SEARCHER_PRIVATE_KEY` corresponds to your private key. This key should be updated in your environment variables. It's this key that will be responsible for paying fees and utilizing the contract. Remember to update it [here](https://github.com/mouseless-eth/rusty-sando/blob/master/contract/src/sando.huff#L18).
+
+### Do I need to wait for the Erigon archive node to fully sync?
+
+Yes, it's essential for the Erigon archive node to be fully synced before proceeding.
