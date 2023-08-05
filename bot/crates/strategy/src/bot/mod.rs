@@ -47,7 +47,6 @@ impl<M: Middleware + 'static> SandoBot<M> {
 
     /// Main logic for the strategy
     /// Checks if the passed `RawIngredients` is sandwichable
-    #[allow(unused_mut)]
     pub async fn is_sandwichable(
         &self,
         ingredients: RawIngredients,
@@ -67,13 +66,12 @@ impl<M: Middleware + 'static> SandoBot<M> {
             Some((target_block.number - 1).into()),
         );
 
-        let mut weth_inventory = self.sando_state_manager.get_weth_inventory();
-
-        #[cfg(feature = "debug")]
-        {
-            // Set a new value only when the debug feature is active
-            weth_inventory = (*crate::constants::WETH_FUND_AMT).into();
-        }
+        let weth_inventory = if cfg!(feature = "debug") {
+            // spoof weth balance when the debug feature is active
+            (*crate::constants::WETH_FUND_AMT).into()
+        } else {
+            self.sando_state_manager.get_weth_inventory()
+        };
 
         let optimal_input = find_optimal_input(
             &ingredients,
@@ -138,6 +136,7 @@ impl<M: Middleware + 'static> SandoBot<M> {
     }
 
     /// Process new txs as they come in
+    #[allow(unused_mut)]
     async fn process_new_tx(&mut self, victim_tx: Transaction) -> Option<Action> {
         // setup variables for processing tx
         let next_block = self.block_manager.get_next_block();
