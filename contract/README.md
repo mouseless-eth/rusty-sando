@@ -62,13 +62,13 @@ All calldata is encoded by packing the values together.
 | 0x0A  | V2 Frontrun, Weth is Token0 and Input  |
 | 0x0F  | V2 Backrun, Weth is Token1 and Output  |
 | 0x14  | V2 Frontrun, Weth is Token1 and Input |
-| 0x1E  | V3 Backrun, Weth is Token0 and Output |
-| 0x2D  | V3 Frontrun, Weth is Token0 and Input  |
-| 0x19  | V3 Backrun, Weth is Token1 and Output |
-| 0x32  | V3 Frontrun, Weth is Token1 and Input  |
-| 0x37  | Seppuku (self-destruct)  |
-| 0x3C  | Recover Eth  |
-| 0x41  | Recover Weth  |
+| 0x19  | V3 Backrun, Weth is Token0 and Output |
+| 0x1E  | V3 Frontrun, Weth is Token0 and Input  |
+| 0x23  | V3 Backrun (Weth is Token1 and Output) |
+| 0x28  | V3 Frontrun, Weth is Token1 and Input  |
+| 0x2D  | Seppuku (self-destruct)  |
+| 0x32  | Recover Eth  |
+| 0x37  | Recover Weth  |
 | ...  | ...  |
 | 0xFA  | UniswapV3 Callback  |
 
