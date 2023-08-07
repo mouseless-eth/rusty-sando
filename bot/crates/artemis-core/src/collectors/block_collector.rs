@@ -45,8 +45,8 @@ where
         let stream = stream.filter_map(|block| match block.number {
             Some(number) => Some(NewBlock {
                 number,
-                gas_limit: block.gas_used,
-                gas_used: block.gas_limit,
+                gas_limit: block.gas_limit,
+                gas_used: block.gas_used,
                 base_fee_per_gas: block.base_fee_per_gas.unwrap_or_default(),
                 timestamp: block.timestamp,
             }),
